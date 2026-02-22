@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model VillaOwner {
+  id           String        @id @default(cuid())
+  name         String
+  unitNumber   String?
+  monthlyDues  Float         @default(0)
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Transaction {
+  id          String      @id @default(cuid())
+  type        String      // "INCOME" or "EXPENSE"
+  amount      Float
+  date        DateTime
+  description String
+  category    String?     // e.g. "Wages", "Village Expenses", etc.
+  ownerId     String?
+  owner       VillaOwner? @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model FileEntry {
+  id        String   @id @default(cuid())
+  title     String
+  type      String   // "DOCUMENT", "PHOTO", "VIDEO"
+  url       String   // local path like "/uploads/xyz.pdf"
+  sizeBytes Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
