@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Home, LineChart, FileText, ImageIcon, Video, UserCircle, Settings } from "lucide-react";
 
-const navItems = [
+export const navItems = [
     { name: "Dashboard", href: "/", icon: Home },
     { name: "Expenses Tracker", href: "/transactions", icon: LineChart },
     { name: "Income Tracker", href: "/owners", icon: UserCircle },
@@ -11,7 +11,7 @@ const navItems = [
 
 export function Sidebar() {
     return (
-        <div className="flex flex-col w-64 border-r border-border bg-card h-screen p-4">
+        <div className="hidden md:flex flex-col w-64 border-r border-border bg-card h-screen p-4">
             <div className="flex items-center gap-2 mb-8 px-2">
                 <div className="bg-primary text-primary-foreground p-2 rounded-lg">
                     <Home className="w-5 h-5" />

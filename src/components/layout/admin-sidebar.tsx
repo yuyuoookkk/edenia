@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const adminNavItems = [
+export const adminNavItems = [
     { name: "Dashboard", href: "/admin", icon: Home },
     { name: "Transactions", href: "/admin/transactions", icon: LineChart },
     { name: "Villa Owners", href: "/admin/owners", icon: UserCircle },
@@ -25,7 +25,7 @@ export function AdminSidebar({ username }: { username: string }) {
     };
 
     return (
-        <div className="flex flex-col w-64 border-r border-slate-700/50 bg-slate-900 h-screen p-4">
+        <div className="hidden md:flex flex-col w-64 border-r border-slate-700/50 bg-slate-900 h-screen p-4">
             <div className="flex items-center gap-2 mb-8 px-2">
                 <div className="bg-gradient-to-br from-primary to-emerald-500 text-white p-2 rounded-lg shadow-lg shadow-primary/20">
                     <ShieldCheck className="w-5 h-5" />
@@ -45,8 +45,8 @@ export function AdminSidebar({ username }: { username: string }) {
                             key={item.name}
                             href={item.href}
                             className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isActive
-                                    ? "bg-primary/15 text-primary shadow-sm border border-primary/20"
-                                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                                ? "bg-primary/15 text-primary shadow-sm border border-primary/20"
+                                : "text-slate-400 hover:bg-slate-800 hover:text-white"
                                 }`}
                         >
                             <Icon className="w-4 h-4" />
