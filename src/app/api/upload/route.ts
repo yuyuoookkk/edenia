@@ -6,8 +6,10 @@ import { put } from "@vercel/blob";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
-const useVercelBlob = !!process.env.BLOB_READ_WRITE_TOKEN &&
-    !process.env.BLOB_READ_WRITE_TOKEN.includes("token_here");
+function shouldUseVercelBlob() {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    return !!token && token.length > 20 && !token.includes("token_here");
+}
 
 export async function POST(request: Request) {
     const headerList = await headers();
@@ -27,12 +29,10 @@ export async function POST(request: Request) {
         const safeFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
         let fileUrl: string;
 
-        if (useVercelBlob) {
-            // Production: upload to Vercel Blob
+        if (shouldUseVercelBlob()) {
             const blob = await put(safeFilename, file, { access: "public" });
             fileUrl = blob.url;
         } else {
-            // Local dev: save to public/uploads/
             const uploadsDir = path.join(process.cwd(), "public", "uploads");
             await mkdir(uploadsDir, { recursive: true });
             const filePath = path.join(uploadsDir, safeFilename);

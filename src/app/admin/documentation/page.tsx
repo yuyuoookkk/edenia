@@ -63,7 +63,14 @@ export default function AdminDocumentationPage() {
         formData.append("title", formTitle);
         formData.append("type", formType);
 
-        await fetch("/api/upload", { method: "POST", body: formData });
+        const res = await fetch("/api/upload", { method: "POST", body: formData });
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert(`Upload failed: ${data.error || "Unknown error"}`);
+            setUploading(false);
+            return;
+        }
 
         setUploading(false);
         setShowForm(false);
