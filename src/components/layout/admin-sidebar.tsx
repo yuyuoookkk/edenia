@@ -13,6 +13,7 @@ export const adminNavItems = [
     { name: "Transactions", href: "/admin/transactions", icon: LineChart },
     { name: "Villa Owners", href: "/admin/owners", icon: UserCircle },
     { name: "Files & Media", href: "/admin/files", icon: FileText },
+    { name: "Documentation", href: "/admin/documentation", icon: ImageIcon },
 ];
 
 export function AdminSidebar({ username }: { username: string }) {

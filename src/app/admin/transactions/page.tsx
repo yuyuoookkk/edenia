@@ -182,7 +182,7 @@ export default function AdminTransactionsPage() {
                                         <SelectContent>
                                             {owners.map((o) => (
                                                 <SelectItem key={o.id} value={o.id}>
-                                                    {o.name} (Unit {o.unitNumber})
+                                                    Unit {o.unitNumber || "N/A"}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>

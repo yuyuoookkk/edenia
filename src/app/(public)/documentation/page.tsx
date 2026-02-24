@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { Image as ImageIcon, Video } from "lucide-react";
+import { Image as ImageIcon, Video, X } from "lucide-react";
 
 type FileEntry = { id: string; title: string; url: string; type: string };
 
 export default function DocumentationPage() {
     const [media, setMedia] = useState<FileEntry[]>([]);
+    const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+    const [lightboxTitle, setLightboxTitle] = useState("");
 
     useEffect(() => {
         fetchMedia();
@@ -22,6 +24,16 @@ export default function DocumentationPage() {
 
     const photos = media.filter(m => m.type === "PHOTO");
     const videos = media.filter(m => m.type === "VIDEO");
+
+    const openLightbox = (url: string, title: string) => {
+        setLightboxUrl(url);
+        setLightboxTitle(title);
+    };
+
+    const closeLightbox = () => {
+        setLightboxUrl(null);
+        setLightboxTitle("");
+    };
 
     return (
         <div className="space-y-6 max-w-6xl mx-auto">
@@ -42,10 +54,15 @@ export default function DocumentationPage() {
 
                 <TabsContent value="photos" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                     {photos.map(p => (
-                        <Card key={p.id} className="overflow-hidden group relative">
+                        <Card
+                            key={p.id}
+                            className="overflow-hidden group relative cursor-pointer"
+                            onClick={() => openLightbox(p.url, p.title)}
+                        >
                             <div className="aspect-video bg-muted relative">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={p.url} alt={p.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
                             </div>
                             <div className="p-3 bg-card border-t">
                                 <p className="font-medium truncate">{p.title}</p>
@@ -63,7 +80,7 @@ export default function DocumentationPage() {
                     {videos.map(v => (
                         <Card key={v.id} className="overflow-hidden group relative">
                             <div className="aspect-video bg-muted relative">
-                                <video src={v.url} controls className="w-full h-full object-cover" />
+                                <video src={v.url} controls preload="metadata" className="w-full h-full object-cover" />
                             </div>
                             <div className="p-3 bg-card border-t flex justify-between items-center">
                                 <p className="font-medium truncate">{v.title}</p>
@@ -77,6 +94,32 @@ export default function DocumentationPage() {
                     )}
                 </TabsContent>
             </Tabs>
+
+            {/* Lightbox Modal */}
+            {lightboxUrl && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                    onClick={closeLightbox}
+                >
+                    <button
+                        className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-all z-50"
+                        onClick={closeLightbox}
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
+                    <div className="max-w-[90vw] max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={lightboxUrl}
+                            alt={lightboxTitle}
+                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+                        />
+                        {lightboxTitle && (
+                            <p className="text-white text-center mt-3 text-lg font-medium">{lightboxTitle}</p>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

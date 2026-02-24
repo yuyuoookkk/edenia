@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { del } from "@vercel/blob";
 import { getAdminUserIdFromCookie } from "@/lib/auth";
 import { headers } from "next/headers";
+import { unlink } from "fs/promises";
+import path from "path";
+
+const useVercelBlob = process.env.BLOB_READ_WRITE_TOKEN &&
+    !process.env.BLOB_READ_WRITE_TOKEN.includes("token_here");
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get("type"); // optional filter
+    const type = searchParams.get("type");
 
     try {
         let where = {};
         if (type) {
             where = { type };
         }
-
-        // allow multiple types separated by comma
         if (type && type.includes(',')) {
             where = { type: { in: type.split(',') } };
         }
@@ -26,6 +28,31 @@ export async function GET(request: Request) {
         return NextResponse.json(files);
     } catch (error) {
         return NextResponse.json({ error: "Failed to fetch files" }, { status: 500 });
+    }
+}
+
+export async function PATCH(request: Request) {
+    const headerList = await headers();
+    const userId = getAdminUserIdFromCookie(headerList.get("cookie"));
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    try {
+        const body = await request.json();
+        const { id, title, type } = body;
+        if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+        const data: Record<string, string> = {};
+        if (title !== undefined) data.title = title;
+        if (type !== undefined) data.type = type;
+
+        if (Object.keys(data).length === 0) {
+            return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+        }
+
+        const updated = await prisma.fileEntry.update({ where: { id }, data });
+        return NextResponse.json(updated);
+    } catch (error) {
+        return NextResponse.json({ error: "Failed to update file" }, { status: 500 });
     }
 }
 
@@ -41,9 +68,18 @@ export async function DELETE(request: Request) {
     try {
         const file = await prisma.fileEntry.findUnique({ where: { id } });
         if (file) {
-            // Only try to delete from Blob if it looks like a Vercel Blob URL
-            if (file.url.includes("public.blob.vercel-storage.com")) {
+            if (useVercelBlob && file.url.includes("public.blob.vercel-storage.com")) {
+                // Production: delete from Vercel Blob
+                const { del } = await import("@vercel/blob");
                 await del(file.url);
+            } else if (file.url.startsWith("/uploads/")) {
+                // Local dev: delete from disk
+                const filePath = path.join(process.cwd(), "public", file.url);
+                try {
+                    await unlink(filePath);
+                } catch {
+                    // File may already be deleted
+                }
             }
         }
         await prisma.fileEntry.delete({ where: { id } });

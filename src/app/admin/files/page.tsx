@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Trash2, FileText, Image as ImageIcon, Video, X } from "lucide-react";
+import { Upload, Trash2, FileText, Image as ImageIcon, Video, X, Pencil, Check } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 
 type FileEntry = { id: string; title: string; type: string; url: string; sizeBytes: number; createdAt: string };
@@ -19,6 +19,12 @@ export default function AdminFilesPage() {
     const [formType, setFormType] = useState("DOCUMENT");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
+
+    // Edit state
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editTitle, setEditTitle] = useState("");
+    const [editType, setEditType] = useState("");
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         fetchFiles();
@@ -68,6 +74,31 @@ export default function AdminFilesPage() {
         fetchFiles();
     };
 
+    const startEdit = (f: FileEntry) => {
+        setEditingId(f.id);
+        setEditTitle(f.title);
+        setEditType(f.type);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditTitle("");
+        setEditType("");
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingId) return;
+        setSaving(true);
+        await fetch("/api/files", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: editingId, title: editTitle, type: editType }),
+        });
+        setSaving(false);
+        cancelEdit();
+        fetchFiles();
+    };
+
     const getTypeIcon = (type: string) => {
         switch (type) {
             case "PHOTO": return <ImageIcon className="w-4 h-4 text-blue-400" />;
@@ -102,10 +133,10 @@ export default function AdminFilesPage() {
                             <div
                                 {...getRootProps()}
                                 className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${isDragActive
-                                        ? "border-emerald-500 bg-emerald-500/10"
-                                        : selectedFile
-                                            ? "border-emerald-500/50 bg-emerald-500/5"
-                                            : "border-slate-700 hover:border-slate-500"
+                                    ? "border-emerald-500 bg-emerald-500/10"
+                                    : selectedFile
+                                        ? "border-emerald-500/50 bg-emerald-500/5"
+                                        : "border-slate-700 hover:border-slate-500"
                                     }`}
                             >
                                 <input {...getInputProps()} />
@@ -167,37 +198,90 @@ export default function AdminFilesPage() {
                             <TableHead className="text-slate-300">Type</TableHead>
                             <TableHead className="text-slate-300">Size</TableHead>
                             <TableHead className="text-slate-300">Uploaded</TableHead>
-                            <TableHead className="text-slate-300 text-center w-[60px]">Delete</TableHead>
+                            <TableHead className="text-slate-300 text-center w-[100px]">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {files.map((f) => (
                             <TableRow key={f.id} className="border-slate-800 hover:bg-slate-800/50">
-                                <TableCell>{getTypeIcon(f.type)}</TableCell>
+                                <TableCell>{getTypeIcon(editingId === f.id ? editType : f.type)}</TableCell>
                                 <TableCell className="text-white font-medium">
-                                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-                                        {f.title}
-                                    </a>
+                                    {editingId === f.id ? (
+                                        <Input
+                                            value={editTitle}
+                                            onChange={(e) => setEditTitle(e.target.value)}
+                                            className="bg-slate-800 border-slate-600 text-white h-8 text-sm"
+                                        />
+                                    ) : (
+                                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
+                                            {f.title}
+                                        </a>
+                                    )}
                                 </TableCell>
                                 <TableCell>
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${f.type === "PHOTO" ? "bg-blue-500/15 text-blue-400" :
+                                    {editingId === f.id ? (
+                                        <Select value={editType} onValueChange={setEditType}>
+                                            <SelectTrigger className="bg-slate-800 border-slate-600 text-white h-8 text-sm w-[120px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="DOCUMENT">Document</SelectItem>
+                                                <SelectItem value="PHOTO">Photo</SelectItem>
+                                                <SelectItem value="VIDEO">Video</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${f.type === "PHOTO" ? "bg-blue-500/15 text-blue-400" :
                                             f.type === "VIDEO" ? "bg-purple-500/15 text-purple-400" :
                                                 "bg-emerald-500/15 text-emerald-400"
-                                        }`}>
-                                        {f.type}
-                                    </span>
+                                            }`}>
+                                            {f.type}
+                                        </span>
+                                    )}
                                 </TableCell>
                                 <TableCell className="text-slate-400">{f.sizeBytes ? `${Math.round(f.sizeBytes / 1024)} KB` : "-"}</TableCell>
                                 <TableCell className="text-slate-400">{new Date(f.createdAt).toLocaleDateString()}</TableCell>
                                 <TableCell className="text-center">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="text-slate-500 hover:text-red-400 hover:bg-red-500/10"
-                                        onClick={() => handleDelete(f.id)}
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
+                                    {editingId === f.id ? (
+                                        <div className="flex justify-center gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                                                onClick={handleSaveEdit}
+                                                disabled={saving}
+                                            >
+                                                <Check className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-slate-500 hover:text-slate-300 hover:bg-slate-700/50"
+                                                onClick={cancelEdit}
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex justify-center gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-slate-500 hover:text-blue-400 hover:bg-blue-500/10"
+                                                onClick={() => startEdit(f)}
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-slate-500 hover:text-red-400 hover:bg-red-500/10"
+                                                onClick={() => handleDelete(f.id)}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}

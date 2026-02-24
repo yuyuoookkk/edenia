@@ -13,9 +13,7 @@ type Owner = { id: string; name: string; unitNumber: string | null; monthlyDues:
 export default function AdminOwnersPage() {
     const [owners, setOwners] = useState<Owner[]>([]);
     const [showForm, setShowForm] = useState(false);
-    const [formName, setFormName] = useState("");
     const [formUnit, setFormUnit] = useState("");
-    const [formDues, setFormDues] = useState("");
 
     useEffect(() => {
         fetchOwners();
@@ -24,7 +22,15 @@ export default function AdminOwnersPage() {
     const fetchOwners = async () => {
         const res = await fetch("/api/owners");
         const data = await res.json();
-        setOwners(Array.isArray(data) ? data : []);
+        const arr = Array.isArray(data) ? data : [];
+        arr.sort((a: Owner, b: Owner) => {
+            const matchA = a.unitNumber?.match(/\d+/);
+            const matchB = b.unitNumber?.match(/\d+/);
+            const numA = matchA ? parseInt(matchA[0], 10) : 0;
+            const numB = matchB ? parseInt(matchB[0], 10) : 0;
+            return numA - numB;
+        });
+        setOwners(arr);
     };
 
     const handleAdd = async (e: React.FormEvent) => {
@@ -33,13 +39,13 @@ export default function AdminOwnersPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                name: formName,
+                name: `Unit ${formUnit || "Unknown"}`,
                 unitNumber: formUnit,
-                monthlyDues: formDues,
+                monthlyDues: 0, // Hardcoded to 0 since input was removed
             }),
         });
         setShowForm(false);
-        setFormName(""); setFormUnit(""); setFormDues("");
+        setFormUnit("");
         fetchOwners();
     };
 
@@ -71,17 +77,7 @@ export default function AdminOwnersPage() {
                         <CardTitle className="text-white text-lg">New Owner</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-slate-300">Name</Label>
-                                <Input
-                                    value={formName}
-                                    onChange={(e) => setFormName(e.target.value)}
-                                    className="bg-slate-800 border-slate-700 text-white"
-                                    placeholder="e.g. John Doe"
-                                    required
-                                />
-                            </div>
+                        <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <Label className="text-slate-300">Unit Number</Label>
                                 <Input
@@ -91,19 +87,7 @@ export default function AdminOwnersPage() {
                                     placeholder="e.g. 15"
                                 />
                             </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-slate-300">Monthly Dues (Rp)</Label>
-                                <Input
-                                    type="number"
-                                    value={formDues}
-                                    onChange={(e) => setFormDues(e.target.value)}
-                                    className="bg-slate-800 border-slate-700 text-white"
-                                    placeholder="e.g. 1300000"
-                                    required
-                                    min="0"
-                                />
-                            </div>
-                            <div className="md:col-span-3">
+                            <div className="md:col-span-2">
                                 <Button type="submit" className="bg-gradient-to-r from-violet-500 to-purple-500 text-white">
                                     Save Owner
                                 </Button>
@@ -118,8 +102,6 @@ export default function AdminOwnersPage() {
                     <TableHeader className="bg-slate-800/50">
                         <TableRow className="border-slate-700">
                             <TableHead className="text-slate-300">Unit</TableHead>
-                            <TableHead className="text-slate-300">Name</TableHead>
-                            <TableHead className="text-slate-300 text-right">Monthly Dues (Rp)</TableHead>
                             <TableHead className="text-slate-300 text-center w-[60px]">Delete</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -127,10 +109,6 @@ export default function AdminOwnersPage() {
                         {owners.map((owner) => (
                             <TableRow key={owner.id} className="border-slate-800 hover:bg-slate-800/50">
                                 <TableCell className="text-slate-300 font-medium">{owner.unitNumber || "-"}</TableCell>
-                                <TableCell className="text-white font-medium">{owner.name}</TableCell>
-                                <TableCell className="text-right text-slate-300">
-                                    Rp {owner.monthlyDues.toLocaleString("id-ID")}
-                                </TableCell>
                                 <TableCell className="text-center">
                                     <Button
                                         variant="ghost"
@@ -145,7 +123,7 @@ export default function AdminOwnersPage() {
                         ))}
                         {owners.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center text-slate-500">
+                                <TableCell colSpan={2} className="h-24 text-center text-slate-500">
                                     No owners found.
                                 </TableCell>
                             </TableRow>

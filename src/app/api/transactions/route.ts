@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const month = searchParams.get("month"); // e.g. "2026-01"
+    const year = searchParams.get("year"); // e.g. "2026"
 
     let carriedForward = 0;
     let whereClause: any = {};
@@ -13,6 +14,23 @@ export async function GET(request: Request) {
         const startDate = new Date(`${month}-01T00:00:00.000Z`);
         const endDate = new Date(startDate);
         endDate.setMonth(endDate.getMonth() + 1);
+        whereClause = {
+            date: {
+                gte: startDate,
+                lt: endDate,
+            }
+        };
+
+        const previousTransactions = await prisma.transaction.findMany({
+            where: { date: { lt: startDate } }
+        });
+        carriedForward = previousTransactions.reduce((acc, txn) =>
+            txn.type === 'INCOME' ? acc + txn.amount : acc - txn.amount
+            , 0);
+    } else if (year) {
+        const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
+        const endDate = new Date(startDate);
+        endDate.setFullYear(endDate.getFullYear() + 1);
         whereClause = {
             date: {
                 gte: startDate,

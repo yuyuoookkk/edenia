@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileText, Download } from "lucide-react";
+import { FileText, Download, ExternalLink } from "lucide-react";
 
 type FileEntry = { id: string; title: string; url: string; sizeBytes: number; createdAt: string };
 
@@ -24,7 +24,7 @@ export default function FilesPage() {
         <div className="space-y-6 max-w-5xl mx-auto">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Edenia Files</h1>
-                <p className="text-muted-foreground">Manage and view all important documents of Villa Edenia.</p>
+                <p className="text-muted-foreground">View and download all important documents of Villa Edenia.</p>
             </div>
 
             <div className="border rounded-md bg-card">
@@ -48,8 +48,13 @@ export default function FilesPage() {
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-2">
                                         <Button variant="outline" size="sm" asChild>
+                                            <a href={f.url} target="_blank" rel="noopener noreferrer">
+                                                <ExternalLink className="w-4 h-4 mr-1" /> View
+                                            </a>
+                                        </Button>
+                                        <Button variant="outline" size="sm" asChild>
                                             <a href={f.url} target="_blank" rel="noopener noreferrer" download>
-                                                <Download className="w-4 h-4" />
+                                                <Download className="w-4 h-4 mr-1" /> Download
                                             </a>
                                         </Button>
                                     </div>
