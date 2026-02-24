@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAdminUserIdFromCookie } from "@/lib/auth";
 import { headers } from "next/headers";
+import { put } from "@vercel/blob";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
-const useVercelBlob = process.env.BLOB_READ_WRITE_TOKEN &&
+const useVercelBlob = !!process.env.BLOB_READ_WRITE_TOKEN &&
     !process.env.BLOB_READ_WRITE_TOKEN.includes("token_here");
 
 export async function POST(request: Request) {
@@ -28,7 +29,6 @@ export async function POST(request: Request) {
 
         if (useVercelBlob) {
             // Production: upload to Vercel Blob
-            const { put } = await import("@vercel/blob");
             const blob = await put(safeFilename, file, { access: "public" });
             fileUrl = blob.url;
         } else {
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
         return NextResponse.json(entry);
     } catch (error) {
         console.error("Upload error:", error);
-        return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
+        const message = error instanceof Error ? error.message : "Failed to upload file";
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

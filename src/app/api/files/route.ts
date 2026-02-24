@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAdminUserIdFromCookie } from "@/lib/auth";
 import { headers } from "next/headers";
+import { del } from "@vercel/blob";
 import { unlink } from "fs/promises";
 import path from "path";
 
-const useVercelBlob = process.env.BLOB_READ_WRITE_TOKEN &&
+const useVercelBlob = !!process.env.BLOB_READ_WRITE_TOKEN &&
     !process.env.BLOB_READ_WRITE_TOKEN.includes("token_here");
 
 export async function GET(request: Request) {
@@ -69,11 +70,8 @@ export async function DELETE(request: Request) {
         const file = await prisma.fileEntry.findUnique({ where: { id } });
         if (file) {
             if (useVercelBlob && file.url.includes("public.blob.vercel-storage.com")) {
-                // Production: delete from Vercel Blob
-                const { del } = await import("@vercel/blob");
                 await del(file.url);
             } else if (file.url.startsWith("/uploads/")) {
-                // Local dev: delete from disk
                 const filePath = path.join(process.cwd(), "public", file.url);
                 try {
                     await unlink(filePath);
