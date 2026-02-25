@@ -56,3 +56,10 @@ export function getAdminUserIdFromCookie(cookieHeader: string | null): string | 
     if (!match) return null;
     return verifySessionToken(decodeURIComponent(match[1]));
 }
+
+export function getOwnerUserIdFromCookie(cookieHeader: string | null): string | null {
+    if (!cookieHeader) return null;
+    const match = cookieHeader.match(/owner_session=([^;]+)/);
+    if (!match) return null;
+    return verifySessionToken(decodeURIComponent(match[1]));
+}

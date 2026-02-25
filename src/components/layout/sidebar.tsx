@@ -9,14 +9,21 @@ export const navItems = [
     { name: "Documentation", href: "/documentation", icon: ImageIcon },
 ];
 
-export function Sidebar() {
+export function Sidebar({ unitNumber }: { unitNumber?: string | null }) {
     return (
         <div className="hidden md:flex flex-col w-64 border-r border-border bg-card h-screen p-4">
             <div className="flex items-center gap-2 mb-8 px-2">
-                <div className="bg-primary text-primary-foreground p-2 rounded-lg">
+                <div className="bg-primary text-primary-foreground p-2 rounded-lg shrink-0">
                     <Home className="w-5 h-5" />
                 </div>
-                <h1 className="font-bold text-xl tracking-tight">Villa Edenia</h1>
+                <div className="flex flex-col">
+                    <h1 className="font-bold text-[1.15rem] leading-none tracking-tight">Villa Edenia</h1>
+                    {unitNumber && (
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mt-1">
+                            Unit {unitNumber}
+                        </span>
+                    )}
+                </div>
             </div>
             <nav className="flex-1 space-y-1">
                 {navItems.map((item) => {

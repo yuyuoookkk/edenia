@@ -1,9 +1,19 @@
-import { Menu, Home, Settings } from "lucide-react";
+"use client";
+
+import { Menu, Home, Settings, LogOut } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { navItems } from "@/components/layout/sidebar";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-export function Header() {
+export function Header({ userName }: { userName?: string }) {
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        await fetch("/api/owner-auth/logout", { method: "POST" });
+        router.push("/login");
+        router.refresh();
+    };
     return (
         <header className="h-16 border-b border-border bg-background flex items-center px-4 md:px-6 sticky top-0 z-10">
             <div className="md:hidden flex items-center mr-4">
@@ -49,12 +59,20 @@ export function Header() {
             </div>
 
             <div className="ml-auto flex items-center gap-4">
-                <div className="text-sm text-muted-foreground hidden sm:block">
-                    User
+                <div className="hidden sm:flex flex-col items-end">
+                    <span className="text-sm font-medium">Unit {userName || "N/A"}</span>
+                    <span className="text-xs text-muted-foreground text-right w-full">Resident</span>
                 </div>
-                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold">
-                    U
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-xs">
+                    {userName || "U"}
                 </div>
+                <button
+                    onClick={handleLogout}
+                    className="p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-md transition-colors ml-1"
+                    title="Sign Out"
+                >
+                    <LogOut className="w-5 h-5" />
+                </button>
             </div>
         </header>
     );
