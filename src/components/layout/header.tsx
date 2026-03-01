@@ -19,8 +19,8 @@ export function Header({ userName }: { userName?: string }) {
             <div className="md:hidden flex items-center mr-4">
                 <Sheet>
                     <SheetTrigger asChild>
-                        <button className="p-2 -ml-2 hover:bg-muted rounded-md text-muted-foreground">
-                            <Menu className="w-6 h-6" />
+                        <button className="p-2 -ml-2 hover:bg-muted rounded-md text-muted-foreground font-medium text-sm">
+                            Menu
                         </button>
                     </SheetTrigger>
                     <SheetContent side="left" className="p-0 w-64 border-r-0">

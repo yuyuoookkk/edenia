@@ -13,8 +13,7 @@ type Owner = { id: string; name: string; unitNumber: string | null; monthlyDues:
 type Transaction = { id: string; type: string; amount: number; date: string; description: string; category: string | null; ownerId: string | null; owner?: Owner };
 
 const CATEGORIES = [
-    "Wages", "Village Expenses", "Bank Charges", "Computer Office",
-    "Electric Water", "Repairs Maintain", "Garden Expenses", "Misc Expenses"
+    "Wages", "Village Expenses", "Bank Charges", "Edenia Expenses", "Repairs Maintain"
 ];
 
 export default function AdminTransactionsPage() {
@@ -144,17 +143,8 @@ export default function AdminTransactionsPage() {
                                 />
                             </div>
 
-                            <div className="space-y-1.5">
-                                <Label className="text-slate-300">Description</Label>
-                                <Input
-                                    type="text"
-                                    value={formDescription}
-                                    onChange={(e) => setFormDescription(e.target.value)}
-                                    className="bg-slate-800 border-slate-700 text-white"
-                                    placeholder="e.g. Salary Staff"
-                                    required
-                                />
-                            </div>
+
+
 
                             {formType === "EXPENSE" && (
                                 <div className="space-y-1.5">
