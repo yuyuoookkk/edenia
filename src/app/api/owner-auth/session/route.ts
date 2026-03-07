@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
         const owner = await prisma.villaOwner.findUnique({
             where: { id: userId },
-            select: { id: true, name: true, unitNumber: true }
+            select: { id: true, name: true, email: true, unitNumber: true }
         });
 
         if (!owner) {

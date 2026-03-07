@@ -14,6 +14,7 @@ datasource db {
 model VillaOwner {
   id           String        @id @default(cuid())
   name         String
+  email        String?
   unitNumber   String?
   passwordHash String?
   monthlyDues  Float         @default(0)

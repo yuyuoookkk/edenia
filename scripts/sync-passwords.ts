@@ -9,8 +9,8 @@ async function main() {
     const owners = await prisma.villaOwner.findMany();
     
     for (const owner of owners) {
-        // The password will be the unit number, or 'password' if there's no unit number
-        const defaultPassword = owner.unitNumber || "password";
+        // The password will be the email, or 'password' if there's no email
+        const defaultPassword = owner.email || "password";
         const hashedPassword = hashPassword(defaultPassword);
         
         await prisma.villaOwner.update({
@@ -18,7 +18,7 @@ async function main() {
             data: { passwordHash: hashedPassword }
         });
         
-        console.log(`Updated owner ${owner.name} (Unit: ${owner.unitNumber}) with password: ${defaultPassword}`);
+        console.log(`Updated owner ${owner.name} (Unit: ${owner.unitNumber}, Email: ${owner.email}) with password: ${defaultPassword}`);
     }
     
     console.log("Password sync complete.");

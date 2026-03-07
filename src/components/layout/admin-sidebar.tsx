@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
     Home, LineChart, UserCircle, FileText, ImageIcon,
-    LogOut, ShieldCheck
+    Fingerprint, LogOut, ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +12,7 @@ export const adminNavItems = [
     { name: "Dashboard", href: "/admin", icon: Home },
     { name: "Transactions", href: "/admin/transactions", icon: LineChart },
     { name: "Villa Owners", href: "/admin/owners", icon: UserCircle },
+    { name: "Attendance", href: "/admin/attendance", icon: Fingerprint },
     { name: "Files & Media", href: "/admin/files", icon: FileText },
     { name: "Documentation", href: "/admin/documentation", icon: ImageIcon },
 ];
@@ -46,7 +47,7 @@ export function AdminSidebar({ username }: { username: string }) {
                             key={item.name}
                             href={item.href}
                             className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isActive
-                                ? "bg-primary/15 text-primary shadow-sm border border-primary/20"
+                                ? "bg-emerald-500/15 text-emerald-400 shadow-sm border border-emerald-500/20"
                                 : "text-slate-400 hover:bg-slate-800 hover:text-white"
                                 }`}
                         >

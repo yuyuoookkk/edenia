@@ -10,7 +10,7 @@ export default function PublicLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const [user, setUser] = useState<{ id: string; name: string; unitNumber: string | null } | null>(null);
+    const [user, setUser] = useState<{ id: string; name: string; email: string | null; unitNumber: string | null } | null>(null);
     const [checking, setChecking] = useState(true);
     const router = useRouter();
 

@@ -7,10 +7,10 @@ export async function POST(request: Request) {
         const { username, password } = await request.json();
 
         if (!username || !password) {
-            return NextResponse.json({ error: "Username/Unit Number and password required" }, { status: 400 });
+            return NextResponse.json({ error: "Villa number and password required" }, { status: 400 });
         }
 
-        // Try to find by unitNumber exclusively
+        // Find owner by villa/unit number
         let owner = await prisma.villaOwner.findFirst({
             where: {
                 unitNumber: username
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
             user: {
                 id: owner.id,
                 name: owner.name,
+                email: owner.email,
                 unitNumber: owner.unitNumber
             }
         });
@@ -45,3 +46,4 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Login failed" }, { status: 500 });
     }
 }
+

@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Home, LineChart, FileText, ImageIcon, Video, UserCircle, Settings } from "lucide-react";
+import { Home, LineChart, FileText, ImageIcon, Video, UserCircle, Fingerprint, Settings } from "lucide-react";
 
 export const navItems = [
     { name: "Dashboard", href: "/", icon: Home },
     { name: "Expenses Tracker", href: "/transactions", icon: LineChart },
     { name: "Income Tracker", href: "/owners", icon: UserCircle },
+    { name: "Attendance", href: "/attendance", icon: Fingerprint },
     { name: "Edenia Files", href: "/files", icon: FileText },
     { name: "Documentation", href: "/documentation", icon: ImageIcon },
 ];
