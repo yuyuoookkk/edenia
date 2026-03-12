@@ -21,6 +21,25 @@ export function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL("/login", request.url));
     }
 
+    // Log the visit asynchronously (fire and forget)
+    // We do this by triggering a fetch request to our own API
+    const ipAddress = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "Unknown";
+    const userAgent = request.headers.get("user-agent") || "Unknown";
+    
+    // Fire and forget
+    fetch(new URL("/api/audit/log", request.url).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            page: pathname,
+            ipAddress,
+            userAgent,
+            sessionToken: ownerSession.value
+        })
+    }).catch(err => {
+        console.error("Failed to trigger audit log:", err);
+    });
+
     return NextResponse.next();
 }
 

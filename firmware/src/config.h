@@ -21,19 +21,12 @@
 #define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Adafruit IO Configuration
-// Get your credentials at: https://io.adafruit.com → My Key
+// Next.js API Configuration
+// The ESP32 will POST fingerprint scans to this endpoint.
+// Set this to your Next.js server's IP/hostname on the local network.
 // ═══════════════════════════════════════════════════════════════════════════════
-#define AIO_SERVER      "io.adafruit.com"
-#define AIO_SERVERPORT  1883
-#define AIO_USERNAME    "YOUR_AIO_USERNAME"
-#define AIO_KEY         "YOUR_AIO_KEY"
-
-// Feed keys (under your AIO_USERNAME)
-// Full feed path will be: AIO_USERNAME/feeds/FEED_KEY
-#define FEED_ATTENDANCE_LOG   "attendance-log"
-#define FEED_GUARD_STATUS     "guard-status"
-#define FEED_DEVICE_HEARTBEAT "device-heartbeat"
+#define API_BASE_URL    "http://192.168.1.100:3000"  // ← Change to your server IP
+#define API_SCAN_PATH   "/api/attendance/scan"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Timezone & NTP

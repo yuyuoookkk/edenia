@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
     Home, LineChart, UserCircle, FileText, ImageIcon,
-    Fingerprint, LogOut, ShieldCheck
+    Fingerprint, LogOut, ShieldCheck, ScrollText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -14,6 +14,7 @@ export const adminNavItems = [
     { name: "Villa Owners", href: "/admin/owners", icon: UserCircle },
     { name: "Attendance", href: "/admin/attendance", icon: Fingerprint },
     { name: "Files & Media", href: "/admin/files", icon: FileText },
+    { name: "Audit Log", href: "/admin/audit-log", icon: ScrollText },
     { name: "Documentation", href: "/admin/documentation", icon: ImageIcon },
 ];
 

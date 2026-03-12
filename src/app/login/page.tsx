@@ -49,7 +49,9 @@ export default function LoginPage() {
             <Card className="w-full max-w-md shadow-lg border-0 ring-1 ring-slate-200">
                 <CardHeader className="text-center pb-4">
                     <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                        <Home className="w-8 h-8 text-primary" />
+                        <Home className="w-8 h-8 text-priAdafruit IO
+Dashboard
+mary" />
                     </div>
                     <CardTitle className="text-2xl font-bold text-slate-900">Welcome to Villa Edenia</CardTitle>
                     <CardDescription className="text-slate-500 mt-2">

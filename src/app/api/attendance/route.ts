@@ -1,174 +1,118 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import {
-    fetchFeedData,
     fetchLatestFeedValue,
     isAdafruitConfigured,
 } from "@/lib/adafruit";
 
-// Guard profiles — must match config.h on the ESP32
-const GUARD_PROFILES = [
-    {
-        id: 1,
-        name: "Putu Darma",
-        role: "Security 1",
-        shift: "Day (06:00–18:00)",
-    },
-    {
-        id: 2,
-        name: "Wayan Sudira",
-        role: "Security 2",
-        shift: "Night (18:00–06:00)",
-    },
-    {
-        id: 3,
-        name: "Kadek Arta",
-        role: "Security 3",
-        shift: "Day (06:00–18:00)",
-    },
-];
-
+/**
+ * GET /api/attendance
+ * 
+ * Returns:
+ * - activeGuard: currently on-duty guard (has open check-in without check-out)
+ * - todayLog: today's attendance records
+ * - guardProfiles: all registered guards
+ * - device: ESP32 heartbeat info from Adafruit IO
+ * - summary: present/absent counts
+ */
 export async function GET() {
     const configured = isAdafruitConfigured();
 
-    // Fetch from Adafruit IO feeds
-    const [attendanceLogs, guardStatusData, heartbeatData] = await Promise.all([
-        configured ? fetchFeedData("attendance-log", 100) : Promise.resolve([]),
-        configured ? fetchLatestFeedValue("guard-status") : Promise.resolve(null),
-        configured
-            ? fetchLatestFeedValue("device-heartbeat")
-            : Promise.resolve(null),
-    ]);
+    // Get all active guards
+    const guards = await prisma.securityGuard.findMany({
+        where: { isActive: true },
+        orderBy: { fingerprintId: "asc" },
+    });
 
-    // ── Build today's log ───────────────────────────────────────────────────
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
 
-    // Group attendance logs by guard and date
-    type LogEntry = Record<string, unknown>;
+    // Get today's attendance records
+    const todayRecords = await prisma.attendanceRecord.findMany({
+        where: { date: today },
+        include: { guard: true },
+        orderBy: { checkIn: "desc" },
+    });
 
-    // Build attendance records from feed data
-    const todayLogs: {
-        id: number;
-        name: string;
-        role: string;
-        checkIn: string | null;
-        checkOut: string | null;
-        status: "present" | "late" | "absent";
-    }[] = [];
+    // Get the currently active guard (open check-in, no check-out)
+    const activeRecord = await prisma.attendanceRecord.findFirst({
+        where: { checkOut: null },
+        include: { guard: true },
+        orderBy: { checkIn: "desc" },
+    });
 
-    const fullLogs: {
-        id: number;
-        name: string;
-        role: string;
-        date: string;
-        checkIn: string | null;
-        checkOut: string | null;
-        status: "present" | "late" | "absent";
-    }[] = [];
+    // Build today's log
+    const todayLog = todayRecords.map((record) => ({
+        id: record.guard.fingerprintId,
+        name: record.guard.name,
+        role: record.guard.role,
+        checkIn: record.checkIn
+            ? record.checkIn.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+            : null,
+        checkOut: record.checkOut
+            ? record.checkOut.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+            : null,
+        hoursWorked: record.hoursWorked,
+        status: record.status as "present" | "late" | "absent",
+        autoClosedBy: record.autoClosedBy,
+    }));
 
-    if (attendanceLogs.length > 0) {
-        // Group by guard+date for full log reconstruction
-        const logsByGuardDate = new Map<
-            string,
-            { checkIn: string | null; checkOut: string | null; status: string }
-        >();
-
-        for (const log of attendanceLogs as LogEntry[]) {
-            const key = `${log.id}-${log.date}`;
-            const existing = logsByGuardDate.get(key);
-
-            if (!existing) {
-                logsByGuardDate.set(key, {
-                    checkIn: log.type === "checkin" ? (log.time as string) : null,
-                    checkOut: log.type === "checkout" ? (log.time as string) : null,
-                    status: log.status as string,
-                });
-            } else {
-                if (log.type === "checkin") existing.checkIn = log.time as string;
-                if (log.type === "checkout") existing.checkOut = log.time as string;
-                if (log.status) existing.status = log.status as string;
-            }
-        }
-
-        // Convert to full log array
-        for (const [key, record] of logsByGuardDate) {
-            const [idStr, date] = key.split("-", 2);
-            const guardId = parseInt(idStr);
-            // Reconstruct the full date from key (after first dash)
-            const fullDate = key.substring(idStr.length + 1);
-            const guard = GUARD_PROFILES.find((g) => g.id === guardId);
-
-            const entry = {
-                id: guardId,
-                name: guard?.name || `Guard ${guardId}`,
-                role: guard?.role || "Unknown",
-                date: fullDate,
-                checkIn: record.checkIn,
-                checkOut: record.checkOut,
-                status: (record.status as "present" | "late" | "absent") || "present",
-            };
-
-            fullLogs.push(entry);
-
-            // Also add to today's log if it's today
-            if (fullDate === today) {
-                todayLogs.push(entry);
-            }
-        }
-
-        // Add absent guards for today (those not in today's logs)
-        for (const guard of GUARD_PROFILES) {
-            if (!todayLogs.find((l) => l.id === guard.id)) {
-                todayLogs.push({
-                    id: guard.id,
-                    name: guard.name,
-                    role: guard.role,
-                    checkIn: null,
-                    checkOut: null,
-                    status: "absent",
-                });
-            }
-        }
-    } else {
-        // No data from AIO — show all guards as absent
-        for (const guard of GUARD_PROFILES) {
-            todayLogs.push({
-                id: guard.id,
+    // Add absent guards (guards who haven't scanned today)
+    const scannedGuardIds = new Set(todayRecords.map((r) => r.guardId));
+    for (const guard of guards) {
+        if (!scannedGuardIds.has(guard.id)) {
+            todayLog.push({
+                id: guard.fingerprintId,
                 name: guard.name,
                 role: guard.role,
                 checkIn: null,
                 checkOut: null,
+                hoursWorked: null,
                 status: "absent",
+                autoClosedBy: null,
             });
         }
     }
 
-    // Sort full logs by date descending
-    fullLogs.sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    // ── Build security staff status ─────────────────────────────────────────
-    const securityStaff = GUARD_PROFILES.map((guard) => {
-        const todayRecord = todayLogs.find((l) => l.id === guard.id);
-        const isWorking =
-            todayRecord?.checkIn !== null && todayRecord?.checkOut === null;
+    // Build security staff status
+    const securityStaff = guards.map((guard) => {
+        const isOnDuty = activeRecord?.guardId === guard.id;
+        const todayRecord = todayRecords.find((r) => r.guardId === guard.id);
         return {
-            id: guard.id,
+            id: guard.fingerprintId,
             name: guard.name,
             role: guard.role,
-            shift: guard.shift,
-            isWorking,
-            checkIn: todayRecord?.checkIn || null,
-            checkOut: todayRecord?.checkOut || null,
+            shift: guard.shift === "Day" ? "Day (06:00–18:00)" : "Night (18:00–06:00)",
+            isWorking: isOnDuty,
+            checkIn: todayRecord?.checkIn
+                ? todayRecord.checkIn.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+                : null,
+            checkOut: todayRecord?.checkOut
+                ? todayRecord.checkOut.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+                : null,
         };
     });
 
-    // ── Build device status ─────────────────────────────────────────────────
+    // Active guard info
+    const activeGuard = activeRecord
+        ? {
+            name: activeRecord.guard.name,
+            role: activeRecord.guard.role,
+            shift: activeRecord.guard.shift,
+            checkIn: activeRecord.checkIn.toISOString(),
+            fingerprintId: activeRecord.guard.fingerprintId,
+        }
+        : null;
+
+    // Device status from Adafruit IO heartbeat
+    const heartbeatData = configured
+        ? await fetchLatestFeedValue("device-heartbeat")
+        : null;
+
     const deviceOnline =
         heartbeatData !== null &&
         heartbeatData._createdAt &&
         Date.now() - new Date(heartbeatData._createdAt as string).getTime() <
-        10 * 60 * 1000; // Online if heartbeat within 10 min
+        10 * 60 * 1000;
 
     const device = {
         online: deviceOnline,
@@ -178,21 +122,26 @@ export async function GET() {
         uptime: (heartbeatData?.uptime as number) || null,
     };
 
-    // ── Summary stats ───────────────────────────────────────────────────────
+    // Summary
     const presentCount = securityStaff.filter((s) => s.isWorking).length;
     const absentCount = securityStaff.filter((s) => !s.isWorking).length;
 
     return NextResponse.json({
         configured,
+        activeGuard,
         securityStaff,
-        todayLog: todayLogs,
-        fullLog: fullLogs,
-        guardProfiles: GUARD_PROFILES,
+        todayLog,
+        guardProfiles: guards.map((g) => ({
+            id: g.fingerprintId,
+            name: g.name,
+            role: g.role,
+            shift: g.shift === "Day" ? "Day (06:00–18:00)" : "Night (18:00–06:00)",
+        })),
         device,
         summary: {
             present: presentCount,
             absent: absentCount,
-            total: GUARD_PROFILES.length,
+            total: guards.length,
         },
     });
 }

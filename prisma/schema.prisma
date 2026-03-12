@@ -19,6 +19,7 @@ model VillaOwner {
   passwordHash String?
   monthlyDues  Float         @default(0)
   transactions Transaction[]
+  visitorLogs  VisitorLog[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -51,4 +52,41 @@ model AdminUser {
   username     String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
+}
+
+model SecurityGuard {
+  id            String             @id @default(cuid())
+  fingerprintId Int                @unique // Matches R307 sensor slot (1-127)
+  name          String
+  role          String             // "Security 1", "Security 2", etc.
+  shift         String             // "Day" or "Night"
+  shiftStart    String             // "06:00" or "18:00"
+  isActive      Boolean            @default(true)
+  records       AttendanceRecord[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model AttendanceRecord {
+  id          String        @id @default(cuid())
+  guardId     String
+  guard       SecurityGuard @relation(fields: [guardId], references: [id])
+  date        String        // "YYYY-MM-DD" for easy querying
+  checkIn     DateTime
+  checkOut    DateTime?
+  hoursWorked Float?        // Calculated on check-out
+  status      String        // "present" or "late"
+  autoClosedBy String?      // Guard ID who triggered auto-close, null if manual
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model VisitorLog {
+  id        String      @id @default(cuid())
+  ownerId   String?
+  owner     VillaOwner? @relation(fields: [ownerId], references: [id])
+  page      String
+  ipAddress String?
+  userAgent String?
+  visitedAt DateTime    @default(now())
 }

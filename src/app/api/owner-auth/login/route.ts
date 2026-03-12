@@ -17,7 +17,20 @@ export async function POST(request: Request) {
             }
         });
 
-        if (!owner || !owner.passwordHash || !verifyPassword(password, owner.passwordHash)) {
+        if (!owner) {
+            return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+        }
+
+        // If owner doesn't have a password set, the first login attempt sets it.
+        if (!owner.passwordHash) {
+            const { hashPassword } = await import("@/lib/auth");
+            const newHash = hashPassword(password);
+            
+            owner = await prisma.villaOwner.update({
+                where: { id: owner.id },
+                data: { passwordHash: newHash },
+            });
+        } else if (!verifyPassword(password, owner.passwordHash)) {
             return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
         }
 
