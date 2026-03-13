@@ -46,8 +46,11 @@ NTPClient timeClient(ntpUDP, NTP_SERVER, UTC_OFFSET_SECONDS, 60000);
 // Timing trackers
 unsigned long lastScanTime = 0;
 unsigned long lastLcdMessage = 0;
+unsigned long lastClockUpdate = 0;
 unsigned long bootTime = 0;
 bool showingMessage = false;
+
+#define CLOCK_UPDATE_INTERVAL_MS 1000  // Update clock display every second
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LCD Helper Functions
@@ -67,8 +70,35 @@ void lcdShowTemp(const char *line1, const char *line2) {
   showingMessage = true;
 }
 
+void lcdShowClock() {
+  timeClient.update();
+  int hours = timeClient.getHours();
+  int minutes = timeClient.getMinutes();
+  int seconds = timeClient.getSeconds();
+
+  // Get epoch time for date calculation
+  unsigned long epochTime = timeClient.getEpochTime();
+  struct tm *ptm = gmtime((time_t *)&epochTime);
+  int day = ptm->tm_mday;
+  int month = ptm->tm_mon + 1;
+  int year = ptm->tm_year + 1900;
+
+  // Line 1: "Edenia Security" (branding)
+  // Line 2: "HH:MM:SS  DD/MM" (time + date)
+  char line2[17];
+  snprintf(line2, sizeof(line2), "%02d:%02d:%02d  %02d/%02d",
+           hours, minutes, seconds, day, month);
+
+  lcd.setCursor(0, 0);
+  lcd.print("Edenia Security ");
+  lcd.setCursor(0, 1);
+  lcd.print(line2);
+
+  lastClockUpdate = millis();
+}
+
 void lcdShowIdle() {
-  lcdPrint("Edenia Security", "Scan finger...");
+  lcdShowClock();
   showingMessage = false;
 }
 
@@ -340,6 +370,12 @@ void loop() {
   if (showingMessage &&
       (millis() - lastLcdMessage >= LCD_MESSAGE_DURATION_MS)) {
     lcdShowIdle();
+  }
+
+  // ── Update clock display every second when idle
+  if (!showingMessage &&
+      (millis() - lastClockUpdate >= CLOCK_UPDATE_INTERVAL_MS)) {
+    lcdShowClock();
   }
 
   // ── Scan cooldown
