@@ -82,6 +82,8 @@ export default function OwnersPage() {
     const monthsBilled = getMonthsBilled(currentYear);
     const totalRequired = MONTHLY_DUES * monthsBilled;
 
+    const EXCLUDED_VILLAS = [16, 17, 30, 33, 34, 35, 36];
+
     const renderOwnerRow = (owner: Owner, villaLabel: string, extraClassName?: string) => {
         let totalPaid = 0;
         const paymentsByMonth = MONTHS.map((_, index) => {
@@ -155,7 +157,7 @@ export default function OwnersPage() {
                         <TableBody>
                             {(() => {
                                 const mappedOwnerIds = new Set<string>();
-                                const rows = Array.from({ length: 41 }, (_, i) => i + 2).map(villaNumber => {
+                                const rows = Array.from({ length: 41 }, (_, i) => i + 2).filter(v => !EXCLUDED_VILLAS.includes(v)).map(villaNumber => {
                                     const owner = owners.find(o => {
                                         if (!o.unitNumber) return false;
                                         const match = o.unitNumber.match(/^\d+/);
