@@ -8,6 +8,7 @@ type Transaction = { id: string; amount: number; date: string; type: string };
 type Owner = { id: string; name: string; unitNumber: string | null; monthlyDues: number; transactions: Transaction[] };
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+const MONTHLY_DUES = 1300000; // Rp 1,300,000 per owner per month
 
 function formatIDR(amount: number) {
     if (!amount) return "";
@@ -107,9 +108,10 @@ export default function OwnersPage() {
 
                                     let totalPaid = 0;
                                     const paymentsByMonth = MONTHS.map((_, index) => {
-                                        const paid = owner.transactions
-                                            .filter(t => new Date(t.date).getMonth() === index)
-                                            .reduce((s, t) => s + t.amount, 0);
+                                        const txnsThisMonth = owner.transactions.filter(t => new Date(t.date).getMonth() === index);
+                                        if (txnsThisMonth.length === 0) return null;
+                                        
+                                        const paid = txnsThisMonth.reduce((s, t) => s + t.amount, 0);
                                         totalPaid += paid;
                                         return paid;
                                     });
@@ -122,7 +124,7 @@ export default function OwnersPage() {
                                         monthsPassed = 0;
                                     }
 
-                                    const expectedTotal = owner.monthlyDues * monthsPassed;
+                                    const expectedTotal = MONTHLY_DUES * monthsPassed;
                                     const amountOwed = Math.max(0, expectedTotal - totalPaid);
 
                                     return (
@@ -133,7 +135,7 @@ export default function OwnersPage() {
 
                                             {paymentsByMonth.map((paid, i) => (
                                                 <TableCell key={`paid-${i}`} className="border-r text-right text-gray-700">
-                                                    {paid > 0 ? formatIDR(paid) : ""}
+                                                    {paid !== null ? formatIDR(paid) || "0" : ""}
                                                 </TableCell>
                                             ))}
 
@@ -147,9 +149,10 @@ export default function OwnersPage() {
                                 const unmappedRows = owners.filter(o => !mappedOwnerIds.has(o.id)).map(owner => {
                                     let totalPaid = 0;
                                     const paymentsByMonth = MONTHS.map((_, index) => {
-                                        const paid = owner.transactions
-                                            .filter(t => new Date(t.date).getMonth() === index)
-                                            .reduce((s, t) => s + t.amount, 0);
+                                        const txnsThisMonth = owner.transactions.filter(t => new Date(t.date).getMonth() === index);
+                                        if (txnsThisMonth.length === 0) return null;
+                                        
+                                        const paid = txnsThisMonth.reduce((s, t) => s + t.amount, 0);
                                         totalPaid += paid;
                                         return paid;
                                     });
@@ -161,7 +164,7 @@ export default function OwnersPage() {
                                         monthsPassed = 0;
                                     }
 
-                                    const expectedTotal = owner.monthlyDues * monthsPassed;
+                                    const expectedTotal = MONTHLY_DUES * monthsPassed;
                                     const amountOwed = Math.max(0, expectedTotal - totalPaid);
 
                                     return (
@@ -172,7 +175,7 @@ export default function OwnersPage() {
 
                                             {paymentsByMonth.map((paid, i) => (
                                                 <TableCell key={`unmapped-paid-${i}`} className="border-r text-right text-gray-700 border-t-2 border-t-amber-200">
-                                                    {paid > 0 ? formatIDR(paid) : ""}
+                                                    {paid !== null ? formatIDR(paid) || "0" : ""}
                                                 </TableCell>
                                             ))}
 
@@ -201,7 +204,7 @@ export default function OwnersPage() {
                                         if (isCurrentYear) monthsPassed = currentMonthIndex + 1;
                                         else if (currentYear > new Date().getFullYear()) monthsPassed = 0;
                                         const totalPaid = o.transactions.reduce((s, t) => s + t.amount, 0);
-                                        const expectedTotal = o.monthlyDues * monthsPassed;
+                                        const expectedTotal = MONTHLY_DUES * monthsPassed;
                                         return sum + Math.max(0, expectedTotal - totalPaid);
                                     }, 0))}
                                 </TableCell>

@@ -8,6 +8,8 @@ import { AlertCircle } from "lucide-react";
 type Owner = { id: string; name: string; unitNumber: string | null; monthlyDues: number };
 type Transaction = { id: string; type: string; amount: number; date: string; description: string; category: string | null; ownerId: string | null; owner?: Owner };
 
+const MONTHLY_DUES = 1300000; // Rp 1,300,000 per owner per month
+
 const KNOWN_CATEGORIES = [
     "Wages",
     "Village Expenses",
@@ -23,7 +25,7 @@ function formatIDR(amount: number) {
 
 export default function TransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [carriedForward, setCarriedForward] = useState(0);
+    const [carriedForward, setCarriedForward] = useState<number | string>("");
     const [owners, setOwners] = useState<Owner[]>([]);
     const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
 
@@ -70,17 +72,22 @@ export default function TransactionsPage() {
         };
     });
 
-    let currentBalance = carriedForward;
+    let currentBalance = typeof carriedForward === 'string' ? parseFloat(carriedForward) || 0 : carriedForward;
 
-    // Calculate unpaid dues (using income transactions linked to owners)
+    // Calculate unpaid dues: each owner owes 1,300,000/month
+    // Months passed so far this year (up to current month)
+    const isCurrentYear = currentYear === new Date().getFullYear();
+    const monthsPassed = isCurrentYear ? new Date().getMonth() + 1 : (currentYear < new Date().getFullYear() ? 12 : 0);
+    const expectedTotal = MONTHLY_DUES * monthsPassed;
+
     const unpaidDues = owners.map(owner => {
-        const paidThisMonth = transactions
+        const paidThisYear = transactions
             .filter(t => t.ownerId === owner.id && t.type === "INCOME")
             .reduce((sum, t) => sum + t.amount, 0);
         return {
             owner,
-            paid: paidThisMonth,
-            owed: owner.monthlyDues - paidThisMonth
+            paid: paidThisYear,
+            owed: Math.max(0, expectedTotal - paidThisYear)
         };
     }).filter(o => o.owed > 0);
 
@@ -88,16 +95,30 @@ export default function TransactionsPage() {
         <div className="space-y-6 max-w-[1400px] mx-auto overflow-x-hidden">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold tracking-tight">Finances Spreadsheet</h1>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Year:</span>
-                    <input
-                        type="number"
-                        min="2020"
-                        max="2050"
-                        value={currentYear}
-                        onChange={e => setCurrentYear(parseInt(e.target.value))}
-                        className="w-24 px-3 py-1 rounded border bg-background"
-                    />
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Starting Balance:</span>
+                        <div className="relative">
+                            <span className="absolute left-2.5 top-1.5 text-sm text-gray-500">Rp</span>
+                            <input
+                                type="number"
+                                value={carriedForward}
+                                onChange={e => setCarriedForward(e.target.value)}
+                                className="w-32 pl-8 pr-3 py-1 rounded border bg-background font-mono text-sm"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Year:</span>
+                        <input
+                            type="number"
+                            min="2020"
+                            max="2050"
+                            value={currentYear}
+                            onChange={e => setCurrentYear(parseInt(e.target.value))}
+                            className="w-24 px-3 py-1 rounded border bg-background"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -164,32 +185,31 @@ export default function TransactionsPage() {
             </Card>
 
             {/* Unpaid Dues Section */}
-            {
-                unpaidDues.length > 0 && (
-                    <Card className="border-rose-200 bg-rose-50/30">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-rose-700 text-lg">
-                                <AlertCircle className="w-5 h-5" />
-                                Unpaid Villa Dues (Year {currentYear})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-3">
-                                {unpaidDues.map(u => (
-                                    <div key={u.owner.id} className="flex justify-between items-center bg-white p-3 rounded-md border border-rose-100">
-                                        <div className="font-semibold text-rose-900">
-                                            Unit {u.owner.unitNumber || 'N/A'}
-                                        </div>
-                                        <div className="text-rose-600 font-bold">
-                                            Owes: Rp {u.owed.toLocaleString('id-ID')}
-                                        </div>
+            {unpaidDues.length > 0 && (
+                <Card className="border-rose-200 bg-rose-50/30">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-rose-700 text-lg">
+                            <AlertCircle className="w-5 h-5" />
+                            Unpaid Villa Dues (Year {currentYear})
+                        </CardTitle>
+                        <p className="text-sm text-rose-600/70">Each villa owes Rp {MONTHLY_DUES.toLocaleString('id-ID')}/month × {monthsPassed} month(s) = Rp {expectedTotal.toLocaleString('id-ID')}</p>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-3">
+                            {unpaidDues.map(u => (
+                                <div key={u.owner.id} className="flex justify-between items-center bg-white p-3 rounded-md border border-rose-100">
+                                    <div className="font-semibold text-rose-900">
+                                        Unit {u.owner.unitNumber || 'N/A'}
                                     </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )
-            }
+                                    <div className="text-rose-600 font-bold">
+                                        Owes: Rp {u.owed.toLocaleString('id-ID')}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
         </div >
     );
 }
