@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X, Save } from "lucide-react";
 
 type Owner = { id: string; name: string; unitNumber: string | null; monthlyDues: number };
 type Transaction = { id: string; type: string; amount: number; date: string; description: string; category: string | null; ownerId: string | null; owner?: Owner };
@@ -15,6 +15,8 @@ type Transaction = { id: string; type: string; amount: number; date: string; des
 const CATEGORIES = [
     "Wages", "Village Expenses", "Bank Charges", "Edenia Expenses", "Repairs Maintain"
 ];
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export default function AdminTransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -30,6 +32,11 @@ export default function AdminTransactionsPage() {
     const [formCategory, setFormCategory] = useState("");
     const [formOwnerId, setFormOwnerId] = useState("");
 
+    // Monthly balance state
+    const [balanceYear, setBalanceYear] = useState(() => new Date().getFullYear());
+    const [balances, setBalances] = useState<Record<number, string>>({});
+    const [savingMonth, setSavingMonth] = useState<number | null>(null);
+
     useEffect(() => {
         const today = new Date();
         setCurrentMonth(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`);
@@ -40,6 +47,10 @@ export default function AdminTransactionsPage() {
         fetchData();
     }, [currentMonth]);
 
+    useEffect(() => {
+        fetchBalances();
+    }, [balanceYear]);
+
     const fetchData = async () => {
         const [txnRes, ownerRes] = await Promise.all([
             fetch(`/api/transactions?month=${currentMonth}`),
@@ -49,6 +60,27 @@ export default function AdminTransactionsPage() {
         const ownerData = await ownerRes.json();
         setTransactions(Array.isArray(txnData.transactions) ? txnData.transactions : []);
         setOwners(Array.isArray(ownerData) ? ownerData : []);
+    };
+
+    const fetchBalances = async () => {
+        const res = await fetch(`/api/monthly-balance?year=${balanceYear}`);
+        const data = await res.json();
+        const mapped: Record<number, string> = {};
+        for (let m = 1; m <= 12; m++) {
+            mapped[m] = data[m] ? data[m].toString() : "";
+        }
+        setBalances(mapped);
+    };
+
+    const saveBalance = async (month: number) => {
+        const amount = parseFloat(balances[month] || "0");
+        setSavingMonth(month);
+        await fetch("/api/monthly-balance", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ year: balanceYear, month, amount }),
+        });
+        setSavingMonth(null);
     };
 
     const handleAdd = async (e: React.FormEvent) => {
@@ -142,9 +174,6 @@ export default function AdminTransactionsPage() {
                                     required
                                 />
                             </div>
-
-
-
 
                             {formType === "EXPENSE" && (
                                 <div className="space-y-1.5">
@@ -243,6 +272,60 @@ export default function AdminTransactionsPage() {
                         </TableBody>
                     </Table>
                 </div>
+            </Card>
+
+            {/* Monthly Balance Section */}
+            <Card className="border-blue-500/30 bg-slate-900/80">
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-white text-lg flex items-center gap-2">
+                            💰 Monthly Balance of Account
+                        </CardTitle>
+                        <input
+                            type="number"
+                            min="2020"
+                            max="2050"
+                            value={balanceYear}
+                            onChange={e => setBalanceYear(parseInt(e.target.value))}
+                            className="w-24 px-3 py-1 rounded border border-slate-700 bg-slate-800 text-white text-sm"
+                        />
+                    </div>
+                    <p className="text-slate-400 text-sm">Set the balance of account for each month. Press Enter or click Save to confirm.</p>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {MONTH_NAMES.map((name, i) => {
+                            const month = i + 1;
+                            return (
+                                <div key={month} className="space-y-1.5">
+                                    <Label className="text-slate-300 text-xs">{name}</Label>
+                                    <div className="flex gap-1">
+                                        <div className="relative flex-1">
+                                            <span className="absolute left-2 top-2 text-xs text-slate-500">Rp</span>
+                                            <Input
+                                                type="number"
+                                                value={balances[month] || ""}
+                                                onChange={e => setBalances(prev => ({ ...prev, [month]: e.target.value }))}
+                                                onKeyDown={e => { if (e.key === "Enter") saveBalance(month); }}
+                                                className="bg-slate-800 border-slate-700 text-white pl-7 text-sm"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => saveBalance(month)}
+                                            className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 px-2"
+                                            disabled={savingMonth === month}
+                                        >
+                                            <Save className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </CardContent>
             </Card>
         </div>
     );

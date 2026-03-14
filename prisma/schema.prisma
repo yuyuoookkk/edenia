@@ -90,3 +90,11 @@ model VisitorLog {
   userAgent String?
   visitedAt DateTime    @default(now())
 }
+
+model MonthlyBalance {
+  id     String @id @default(cuid())
+  year   Int
+  month  Int    // 1-12
+  amount Float
+  @@unique([year, month])
+}

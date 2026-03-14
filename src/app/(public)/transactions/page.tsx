@@ -20,24 +20,25 @@ const KNOWN_CATEGORIES = [
 
 function formatIDR(amount: number) {
     if (!amount) return "";
-    return amount.toLocaleString('en-US'); // Matches the comma format in the user's provided image
+    return amount.toLocaleString('en-US');
 }
 
 export default function TransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [carriedForward, setCarriedForward] = useState<number | string>("");
     const [owners, setOwners] = useState<Owner[]>([]);
     const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
+    const [monthlyBalances, setMonthlyBalances] = useState<Record<number, number>>({});
 
     useEffect(() => {
         if (!currentYear) return;
         Promise.all([
             fetch(`/api/transactions?year=${currentYear}`).then(r => r.json()),
-            fetch('/api/owners').then(r => r.json())
-        ]).then(([txnData, ownerData]) => {
+            fetch('/api/owners').then(r => r.json()),
+            fetch(`/api/monthly-balance?year=${currentYear}`).then(r => r.json()),
+        ]).then(([txnData, ownerData, balanceData]) => {
             setTransactions(Array.isArray(txnData.transactions) ? txnData.transactions : []);
-            setCarriedForward(txnData.carriedForward || 0);
             setOwners(Array.isArray(ownerData) ? ownerData : []);
+            setMonthlyBalances(balanceData || {});
         });
     }, [currentYear]);
 
@@ -68,57 +69,52 @@ export default function TransactionsPage() {
             expensesByCategory,
             miscExpenses,
             income,
-            hasData: true // Always show rows for all 12 months
+            hasData: true
         };
     });
 
-    let currentBalance = typeof carriedForward === 'string' ? parseFloat(carriedForward) || 0 : carriedForward;
+    // Calculate billing months from Feb 2026
+    const BILLING_START_YEAR = 2026;
+    const BILLING_START_MONTH = 2; // February
 
-    // Calculate unpaid dues: each owner owes 1,300,000/month
-    // Months passed so far this year (up to current month)
-    const isCurrentYear = currentYear === new Date().getFullYear();
-    const monthsPassed = isCurrentYear ? new Date().getMonth() + 1 : (currentYear < new Date().getFullYear() ? 12 : 0);
-    const expectedTotal = MONTHLY_DUES * monthsPassed;
+    function getBillingMonths(year: number): number {
+        const now = new Date();
+        const curYear = now.getFullYear();
+        const curMonth = now.getMonth() + 1;
+        if (year < BILLING_START_YEAR) return 0;
+        let lastMonth = year < curYear ? 12 : (year === curYear ? curMonth : 0);
+        let firstMonth = year === BILLING_START_YEAR ? BILLING_START_MONTH : (year > BILLING_START_YEAR ? 1 : 0);
+        if (lastMonth < firstMonth) return 0;
+        return lastMonth - firstMonth + 1;
+    }
 
-    const unpaidDues = owners.map(owner => {
+    const monthsBilled = getBillingMonths(currentYear);
+    const totalRequired = MONTHLY_DUES * monthsBilled;
+
+    const ownerBalances = owners.map(owner => {
         const paidThisYear = transactions
             .filter(t => t.ownerId === owner.id && t.type === "INCOME")
             .reduce((sum, t) => sum + t.amount, 0);
-        return {
-            owner,
-            paid: paidThisYear,
-            owed: Math.max(0, expectedTotal - paidThisYear)
-        };
-    }).filter(o => o.owed > 0);
+        const balance = paidThisYear - totalRequired;
+        return { owner, paid: paidThisYear, balance };
+    });
+
+    const unpaidDues = ownerBalances.filter(o => o.balance < 0);
 
     return (
         <div className="space-y-6 max-w-[1400px] mx-auto overflow-x-hidden">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold tracking-tight">Finances Spreadsheet</h1>
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Starting Balance:</span>
-                        <div className="relative">
-                            <span className="absolute left-2.5 top-1.5 text-sm text-gray-500">Rp</span>
-                            <input
-                                type="number"
-                                value={carriedForward}
-                                onChange={e => setCarriedForward(e.target.value)}
-                                className="w-32 pl-8 pr-3 py-1 rounded border bg-background font-mono text-sm"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Year:</span>
-                        <input
-                            type="number"
-                            min="2020"
-                            max="2050"
-                            value={currentYear}
-                            onChange={e => setCurrentYear(parseInt(e.target.value))}
-                            className="w-24 px-3 py-1 rounded border bg-background"
-                        />
-                    </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Year:</span>
+                    <input
+                        type="number"
+                        min="2020"
+                        max="2050"
+                        value={currentYear}
+                        onChange={e => setCurrentYear(parseInt(e.target.value))}
+                        className="w-24 px-3 py-1 rounded border bg-background"
+                    />
                 </div>
             </div>
 
@@ -136,10 +132,8 @@ export default function TransactionsPage() {
                         </TableHeader>
                         <TableBody>
                             {monthlyData.filter(d => d.hasData).map((data) => {
-                                // Update running balance
-                                currentBalance += data.income;
-                                currentBalance -= Object.values(data.expensesByCategory).reduce((a, b) => a + b, 0);
-                                currentBalance -= data.miscExpenses;
+                                // Use manual balance for this month (month is 1-indexed in the API)
+                                const manualBalance = monthlyBalances[data.monthIndex + 1] || 0;
 
                                 return (
                                     <TableRow key={data.monthIndex} className="hover:bg-muted/30 transition-colors">
@@ -151,7 +145,7 @@ export default function TransactionsPage() {
                                             </TableCell>
                                         ))}
                                         <TableCell className="border-r text-right bg-slate-50 font-bold tracking-tighter text-blue-800">
-                                            {formatIDR(currentBalance)}
+                                            {manualBalance ? formatIDR(manualBalance) : ""}
                                         </TableCell>
                                     </TableRow>
                                 );
@@ -175,7 +169,7 @@ export default function TransactionsPage() {
                                 <TableCell className="border-r text-right bg-blue-100 align-bottom pt-3 pb-3">
                                     <div className="flex flex-col items-end justify-end font-bold text-blue-800 tracking-tighter">
                                         <span className="text-[10px] text-blue-600/80 leading-tight uppercase">TOTAL BANK BALANCE</span>
-                                        <span className="text-sm">{formatIDR(currentBalance)}</span>
+                                        <span className="text-sm">{formatIDR(monthlyBalances[12] || 0)}</span>
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -192,7 +186,7 @@ export default function TransactionsPage() {
                             <AlertCircle className="w-5 h-5" />
                             Unpaid Villa Dues (Year {currentYear})
                         </CardTitle>
-                        <p className="text-sm text-rose-600/70">Each villa owes Rp {MONTHLY_DUES.toLocaleString('id-ID')}/month × {monthsPassed} month(s) = Rp {expectedTotal.toLocaleString('id-ID')}</p>
+                        <p className="text-sm text-rose-600/70">Each villa owes Rp {MONTHLY_DUES.toLocaleString('id-ID')}/month × {monthsBilled} month(s) = Rp {totalRequired.toLocaleString('id-ID')}</p>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
@@ -202,7 +196,7 @@ export default function TransactionsPage() {
                                         Unit {u.owner.unitNumber || 'N/A'}
                                     </div>
                                     <div className="text-rose-600 font-bold">
-                                        Owes: Rp {u.owed.toLocaleString('id-ID')}
+                                        Owes: Rp {Math.abs(u.balance).toLocaleString('id-ID')}
                                     </div>
                                 </div>
                             ))}
@@ -210,6 +204,6 @@ export default function TransactionsPage() {
                     </CardContent>
                 </Card>
             )}
-        </div >
+        </div>
     );
 }

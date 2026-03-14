@@ -9,10 +9,45 @@ type Owner = { id: string; name: string; unitNumber: string | null; monthlyDues:
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
 const MONTHLY_DUES = 1300000; // Rp 1,300,000 per owner per month
+const BILLING_START_YEAR = 2026;
+const BILLING_START_MONTH = 2; // February (1-indexed)
 
 function formatIDR(amount: number) {
-    if (!amount) return "";
-    return amount.toLocaleString('id-ID'); // Consistent with Rp format requested.
+    if (amount === 0) return "0";
+    return amount.toLocaleString('id-ID');
+}
+
+// Calculate how many months of dues are owed from Feb 2026 up to the end of the viewed year
+function getMonthsBilled(viewingYear: number): number {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-indexed
+
+    // If viewing a year before billing started, no dues
+    if (viewingYear < BILLING_START_YEAR) return 0;
+
+    // Determine the last billable month in the viewing year
+    let lastMonth: number;
+    if (viewingYear < currentYear) {
+        lastMonth = 12; // Full year
+    } else if (viewingYear === currentYear) {
+        lastMonth = currentMonth; // Up to current month
+    } else {
+        return 0; // Future year
+    }
+
+    // Determine the first billable month in the viewing year
+    let firstMonth: number;
+    if (viewingYear === BILLING_START_YEAR) {
+        firstMonth = BILLING_START_MONTH;
+    } else if (viewingYear > BILLING_START_YEAR) {
+        firstMonth = 1;
+    } else {
+        return 0;
+    }
+
+    if (lastMonth < firstMonth) return 0;
+    return lastMonth - firstMonth + 1;
 }
 
 export default function OwnersPage() {
@@ -24,7 +59,6 @@ export default function OwnersPage() {
             .then(r => r.json())
             .then(data => {
                 const fetchedOwners = Array.isArray(data) ? data : [];
-                // Sort numerically by unit number, handling ranges like '2-5' by taking the first number
                 const sortedOwners = [...fetchedOwners].sort((a, b) => {
                     const matchA = a.unitNumber?.match(/\d+/);
                     const matchB = b.unitNumber?.match(/\d+/);
@@ -36,7 +70,6 @@ export default function OwnersPage() {
             });
     }, [currentYear]);
 
-    // Calculate totals per month across all owners
     const monthlyTotals = MONTHS.map((_, index) => {
         return owners.reduce((sum, owner) => {
             const paidInMonth = owner.transactions
@@ -46,8 +79,49 @@ export default function OwnersPage() {
         }, 0);
     });
 
-    const isCurrentYear = currentYear === new Date().getFullYear();
-    const currentMonthIndex = new Date().getMonth();
+    const monthsBilled = getMonthsBilled(currentYear);
+    const totalRequired = MONTHLY_DUES * monthsBilled;
+
+    const renderOwnerRow = (owner: Owner, villaLabel: string, extraClassName?: string) => {
+        let totalPaid = 0;
+        const paymentsByMonth = MONTHS.map((_, index) => {
+            const txnsThisMonth = owner.transactions.filter(t => new Date(t.date).getMonth() === index);
+            if (txnsThisMonth.length === 0) return null;
+            const paid = txnsThisMonth.reduce((s, t) => s + t.amount, 0);
+            totalPaid += paid;
+            return paid;
+        });
+
+        const balance = totalPaid - totalRequired;
+
+        return (
+            <TableRow key={owner.id} className="hover:bg-muted/30 transition-colors">
+                <TableCell className={`border-r text-center bg-muted/20 align-middle ${extraClassName || ""}`}>
+                    <div className="font-bold text-base whitespace-nowrap">{villaLabel}</div>
+                </TableCell>
+
+                {paymentsByMonth.map((paid, i) => (
+                    <TableCell key={`paid-${i}`} className={`border-r text-right text-gray-700 ${extraClassName || ""}`}>
+                        {paid !== null ? formatIDR(paid) : ""}
+                    </TableCell>
+                ))}
+
+                <TableCell className={`border-r text-right font-bold ${extraClassName || ""} ${
+                    balance > 0 ? "text-emerald-700 bg-emerald-50" :
+                    balance < 0 ? "text-rose-700 bg-rose-50" :
+                    "text-muted-foreground bg-muted/20"
+                }`}>
+                    {monthsBilled === 0 ? (
+                        <span className="text-muted-foreground font-normal">-</span>
+                    ) : balance === 0 ? (
+                        <span className="text-emerald-600">Rp 0</span>
+                    ) : (
+                        `Rp ${formatIDR(balance)}`
+                    )}
+                </TableCell>
+            </TableRow>
+        );
+    };
 
     return (
         <div className="space-y-6 max-w-[1400px] mx-auto overflow-x-hidden">
@@ -75,7 +149,7 @@ export default function OwnersPage() {
                                 {MONTHS.map(month => (
                                     <TableHead key={month} className="border-r text-right w-[90px] font-bold px-2">{month}</TableHead>
                                 ))}
-                                <TableHead className="border-r w-[100px] font-bold text-center text-rose-600 bg-rose-50/50 leading-tight">AMOUNT<br />OWED</TableHead>
+                                <TableHead className="border-r w-[120px] font-bold text-center leading-tight">BALANCE</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -97,93 +171,19 @@ export default function OwnersPage() {
                                                 {MONTHS.map((_, i) => (
                                                     <TableCell key={`empty-month-${i}`} className="border-r text-right text-gray-700"></TableCell>
                                                 ))}
-                                                <TableCell className="border-r text-right font-bold text-rose-700 bg-rose-50">
-                                                    <span className="text-muted-foreground font-normal">-</span>
+                                                <TableCell className="border-r text-right font-bold text-muted-foreground bg-muted/20">
+                                                    <span className="font-normal">-</span>
                                                 </TableCell>
                                             </TableRow>
                                         );
                                     }
 
                                     mappedOwnerIds.add(owner.id);
-
-                                    let totalPaid = 0;
-                                    const paymentsByMonth = MONTHS.map((_, index) => {
-                                        const txnsThisMonth = owner.transactions.filter(t => new Date(t.date).getMonth() === index);
-                                        if (txnsThisMonth.length === 0) return null;
-                                        
-                                        const paid = txnsThisMonth.reduce((s, t) => s + t.amount, 0);
-                                        totalPaid += paid;
-                                        return paid;
-                                    });
-
-                                    // Calculate expected payment for the given year based on monthly dues
-                                    let monthsPassed = 12;
-                                    if (isCurrentYear) {
-                                        monthsPassed = currentMonthIndex + 1;
-                                    } else if (currentYear > new Date().getFullYear()) {
-                                        monthsPassed = 0;
-                                    }
-
-                                    const expectedTotal = MONTHLY_DUES * monthsPassed;
-                                    const amountOwed = Math.max(0, expectedTotal - totalPaid);
-
-                                    return (
-                                        <TableRow key={owner.id} className="hover:bg-muted/30 transition-colors">
-                                            <TableCell className="border-r text-center bg-muted/20 align-middle">
-                                                <div className="font-bold text-base whitespace-nowrap">{owner.unitNumber || villaNumber}</div>
-                                            </TableCell>
-
-                                            {paymentsByMonth.map((paid, i) => (
-                                                <TableCell key={`paid-${i}`} className="border-r text-right text-gray-700">
-                                                    {paid !== null ? formatIDR(paid) || "0" : ""}
-                                                </TableCell>
-                                            ))}
-
-                                            <TableCell className="border-r text-right font-bold text-rose-700 bg-rose-50">
-                                                {amountOwed > 0 ? formatIDR(amountOwed) : <span className="text-muted-foreground font-normal">-</span>}
-                                            </TableCell>
-                                        </TableRow>
-                                    );
+                                    return renderOwnerRow(owner, owner.unitNumber || String(villaNumber));
                                 });
 
                                 const unmappedRows = owners.filter(o => !mappedOwnerIds.has(o.id)).map(owner => {
-                                    let totalPaid = 0;
-                                    const paymentsByMonth = MONTHS.map((_, index) => {
-                                        const txnsThisMonth = owner.transactions.filter(t => new Date(t.date).getMonth() === index);
-                                        if (txnsThisMonth.length === 0) return null;
-                                        
-                                        const paid = txnsThisMonth.reduce((s, t) => s + t.amount, 0);
-                                        totalPaid += paid;
-                                        return paid;
-                                    });
-
-                                    let monthsPassed = 12;
-                                    if (isCurrentYear) {
-                                        monthsPassed = currentMonthIndex + 1;
-                                    } else if (currentYear > new Date().getFullYear()) {
-                                        monthsPassed = 0;
-                                    }
-
-                                    const expectedTotal = MONTHLY_DUES * monthsPassed;
-                                    const amountOwed = Math.max(0, expectedTotal - totalPaid);
-
-                                    return (
-                                        <TableRow key={owner.id} className="hover:bg-muted/30 transition-colors">
-                                            <TableCell className="border-r text-center bg-muted/20 align-middle border-t-2 border-t-amber-200">
-                                                <div className="font-bold text-base whitespace-nowrap">{owner.unitNumber || "N/A"}</div>
-                                            </TableCell>
-
-                                            {paymentsByMonth.map((paid, i) => (
-                                                <TableCell key={`unmapped-paid-${i}`} className="border-r text-right text-gray-700 border-t-2 border-t-amber-200">
-                                                    {paid !== null ? formatIDR(paid) || "0" : ""}
-                                                </TableCell>
-                                            ))}
-
-                                            <TableCell className="border-r text-right font-bold text-rose-700 bg-rose-50 border-t-2 border-t-amber-200">
-                                                {amountOwed > 0 ? formatIDR(amountOwed) : <span className="text-muted-foreground font-normal">-</span>}
-                                            </TableCell>
-                                        </TableRow>
-                                    );
+                                    return renderOwnerRow(owner, owner.unitNumber || "N/A", "border-t-2 border-t-amber-200");
                                 });
 
                                 return [...rows, ...unmappedRows];
@@ -198,19 +198,19 @@ export default function OwnersPage() {
                                         {formatIDR(total)}
                                     </TableCell>
                                 ))}
-                                <TableCell className="border-r text-right font-bold text-rose-700 bg-rose-100 align-middle">
-                                    {formatIDR(owners.reduce((sum, o) => {
-                                        let monthsPassed = 12;
-                                        if (isCurrentYear) monthsPassed = currentMonthIndex + 1;
-                                        else if (currentYear > new Date().getFullYear()) monthsPassed = 0;
-                                        const totalPaid = o.transactions.reduce((s, t) => s + t.amount, 0);
-                                        const expectedTotal = MONTHLY_DUES * monthsPassed;
-                                        return sum + Math.max(0, expectedTotal - totalPaid);
-                                    }, 0))}
+                                <TableCell className="border-r text-right font-bold bg-blue-100 align-middle">
+                                    {(() => {
+                                        const grandTotalPaid = owners.reduce((sum, o) => sum + o.transactions.reduce((s, t) => s + t.amount, 0), 0);
+                                        const grandTotalRequired = totalRequired * owners.length;
+                                        const grandBalance = grandTotalPaid - grandTotalRequired;
+                                        return (
+                                            <span className={grandBalance >= 0 ? "text-emerald-800" : "text-rose-700"}>
+                                                Rp {formatIDR(grandBalance)}
+                                            </span>
+                                        );
+                                    })()}
                                 </TableCell>
                             </TableRow>
-
-
                         </TableBody>
                     </Table>
                 </div>
