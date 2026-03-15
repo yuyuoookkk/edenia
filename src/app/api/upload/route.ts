@@ -6,6 +6,9 @@ import { put } from "@vercel/blob";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
+// Increase body size limit for file uploads (default is ~1MB)
+export const maxDuration = 60; // seconds
+
 function shouldUseVercelBlob() {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     return !!token && token.length > 20 && !token.includes("token_here");

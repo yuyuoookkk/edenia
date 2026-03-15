@@ -3,9 +3,15 @@
 import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileText, Download, ExternalLink } from "lucide-react";
+import { FileText, Download, Eye } from "lucide-react";
 
 type FileEntry = { id: string; title: string; url: string; sizeBytes: number; createdAt: string };
+
+function getServeUrl(fileUrl: string, download: boolean) {
+    // Extract filename from URL like "/uploads/1234-filename.pdf"
+    const filename = fileUrl.split('/').pop() || '';
+    return `/api/serve-file?file=${encodeURIComponent(filename)}${download ? '&download=1' : ''}`;
+}
 
 export default function FilesPage() {
     const [files, setFiles] = useState<FileEntry[]>([]);
@@ -48,12 +54,12 @@ export default function FilesPage() {
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-2">
                                         <Button variant="outline" size="sm" asChild>
-                                            <a href={f.url} target="_blank" rel="noopener noreferrer">
-                                                <ExternalLink className="w-4 h-4 mr-1" /> View
+                                            <a href={getServeUrl(f.url, false)} target="_blank" rel="noopener noreferrer">
+                                                <Eye className="w-4 h-4 mr-1" /> View
                                             </a>
                                         </Button>
                                         <Button variant="outline" size="sm" asChild>
-                                            <a href={f.url} target="_blank" rel="noopener noreferrer" download>
+                                            <a href={getServeUrl(f.url, true)}>
                                                 <Download className="w-4 h-4 mr-1" /> Download
                                             </a>
                                         </Button>
