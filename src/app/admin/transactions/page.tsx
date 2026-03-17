@@ -229,6 +229,7 @@ export default function AdminTransactionsPage() {
                             <TableRow className="border-slate-700">
                                 <TableHead className="text-slate-300">Date</TableHead>
                                 <TableHead className="text-slate-300">Type</TableHead>
+                                <TableHead className="text-slate-300">Villa</TableHead>
                                 <TableHead className="text-slate-300">Description</TableHead>
                                 <TableHead className="text-slate-300">Category</TableHead>
                                 <TableHead className="text-slate-300 text-right">Amount</TableHead>
@@ -244,6 +245,15 @@ export default function AdminTransactionsPage() {
                                             }`}>
                                             {txn.type}
                                         </span>
+                                    </TableCell>
+                                    <TableCell>
+                                        {txn.type === "INCOME" && txn.owner?.unitNumber ? (
+                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400">
+                                                Villa {txn.owner.unitNumber}
+                                            </span>
+                                        ) : (
+                                            <span className="text-slate-500">-</span>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-slate-300">{txn.description}</TableCell>
                                     <TableCell className="text-slate-400">{txn.category || "-"}</TableCell>
@@ -264,7 +274,7 @@ export default function AdminTransactionsPage() {
                             ))}
                             {transactions.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center text-slate-500">
+                                    <TableCell colSpan={7} className="h-24 text-center text-slate-500">
                                         No transactions for this period.
                                     </TableCell>
                                 </TableRow>
