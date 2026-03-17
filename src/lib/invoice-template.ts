@@ -149,6 +149,45 @@ export function generateInvoiceHTML(data: OwnerInvoiceData): string {
                         </td>
                     </tr>
 
+                    <!-- Bank Details -->
+                    <tr>
+                        <td style="padding:0 40px 24px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;">
+                                <tr>
+                                    <td style="padding:20px 24px;">
+                                        <p style="margin:0;font-size:14px;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:0.5px;">Payment Details</p>
+                                        <p style="margin:12px 0 0;font-size:13px;color:#374151;line-height:1.8;">
+                                            <strong>Bank:</strong> Permata Bank<br>
+                                            <strong>Account Name:</strong> GLENICE SUSANNE PICKERING OR KADEK PISMAYANTI<br>
+                                            <strong>Account Number:</strong> 9984780777<br>
+                                            <strong>SWIFT Code:</strong> BBBAIDJA<br>
+                                            <strong>Bank Code:</strong> 013<br>
+                                            <strong>Branch Code:</strong> 0611
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Signature -->
+                    <tr>
+                        <td style="padding:0 40px 24px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td>
+                                        <img src="https://edeniaprivatevillas.com/uploads/signature.png" alt="Signature" style="height:60px;width:auto;" />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top:4px;">
+                                        <p style="margin:0;font-size:14px;font-weight:600;color:#111827;">Glenice Pickering – Ekonomi</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
                     <!-- Footer -->
                     <tr>
                         <td style="background-color:#f9fafb;padding:24px 40px;border-top:1px solid #e5e7eb;">
