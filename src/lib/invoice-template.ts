@@ -264,20 +264,16 @@ ${headerSection("EDENIA PRIVATE VILLAS", "Payment Receipt", "#064e3b", "#047857"
                                     <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Amount</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Payment Received This Month</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Monthly Dues</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(1_300_000)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;">Payment Received</td>
                                     <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;text-align:right;font-weight:600;">${formatIDR(data.paidThisMonth)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Monthly Dues (${data.monthsBilled} months × ${formatIDR(1_300_000)})</td>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(data.totalRequired)}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Total Payments To Date</td>
-                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(data.totalPaid)}</td>
                                 </tr>
                                 <tr style="background-color:#ECFDF5;">
                                     <td style="padding:16px;font-size:15px;color:#059669;border-top:2px solid #059669;font-weight:700;">Balance</td>
-                                    <td style="padding:16px;font-size:15px;color:#059669;border-top:2px solid #059669;text-align:right;font-weight:700;">${data.balance >= 0 ? formatIDR(data.balance) : "- " + formatIDR(Math.abs(data.balance))}</td>
+                                    <td style="padding:16px;font-size:15px;color:#059669;border-top:2px solid #059669;text-align:right;font-weight:700;">${formatIDR(data.paidThisMonth - 1_300_000)}</td>
                                 </tr>
                             </table>
                         </td>
