@@ -92,8 +92,7 @@ export function generateInvoiceHTML(data: OwnerInvoiceData): string {
                                 <tr>
                                     <td>
                                         <p style="margin:0;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Invoice For</p>
-                                        <p style="margin:4px 0 0;color:#111827;font-size:18px;font-weight:600;">${data.ownerName}</p>
-                                        <p style="margin:2px 0 0;color:#6b7280;font-size:14px;">Villa ${data.villaNumber}</p>
+                                        <p style="margin:4px 0 0;color:#111827;font-size:18px;font-weight:600;">Villa ${data.villaNumber}</p>
                                     </td>
                                     <td style="text-align:right;">
                                         <p style="margin:0;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Period</p>
