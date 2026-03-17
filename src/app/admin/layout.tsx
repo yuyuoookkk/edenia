@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { AdminSidebar, adminNavItems } from "@/components/layout/admin-sidebar";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, ShieldCheck, LogOut } from "lucide-react";
 
@@ -95,17 +95,18 @@ export default function AdminLayout({
                                         const Icon = item.icon;
                                         const isActive = pathname === item.href;
                                         return (
-                                            <Link
-                                                key={item.name}
-                                                href={item.href}
-                                                className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isActive
-                                                    ? "bg-primary/15 text-primary shadow-sm border border-primary/20"
-                                                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                                                    }`}
-                                            >
-                                                <Icon className="w-4 h-4" />
-                                                {item.name}
-                                            </Link>
+                                            <SheetClose asChild key={item.name}>
+                                                <Link
+                                                    href={item.href}
+                                                    className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${isActive
+                                                        ? "bg-primary/15 text-primary shadow-sm border border-primary/20"
+                                                        : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                                                        }`}
+                                                >
+                                                    <Icon className="w-4 h-4" />
+                                                    {item.name}
+                                                </Link>
+                                            </SheetClose>
                                         );
                                     })}
                                 </nav>

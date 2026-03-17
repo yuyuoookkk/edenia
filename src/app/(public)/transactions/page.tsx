@@ -102,9 +102,9 @@ export default function TransactionsPage() {
     const unpaidDues = ownerBalances.filter(o => o.balance < 0);
 
     return (
-        <div className="space-y-6 max-w-[1400px] mx-auto overflow-x-hidden">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight">Finances Spreadsheet</h1>
+        <div className="space-y-6 max-w-[1400px] mx-auto w-full">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Edenia Expenses</h1>
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Year:</span>
                     <input
@@ -184,9 +184,8 @@ export default function TransactionsPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-rose-700 text-lg">
                             <AlertCircle className="w-5 h-5" />
-                            Unpaid Villa Dues (Year {currentYear})
+                            Total Arrears owed
                         </CardTitle>
-                        <p className="text-sm text-rose-600/70">Each villa owes Rp {MONTHLY_DUES.toLocaleString('id-ID')}/month × {monthsBilled} month(s) = Rp {totalRequired.toLocaleString('id-ID')}</p>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">

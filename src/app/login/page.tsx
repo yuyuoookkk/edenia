@@ -80,12 +80,12 @@ mary" />
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="login-password" className="text-slate-700">Password</Label>
+                            <Label htmlFor="login-password" className="text-slate-700">Email</Label>
                             <div className="relative">
                                 <Input
                                     id="login-password"
                                     type={showPassword ? "text" : "password"}
-                                    placeholder="Enter your password"
+                                    placeholder="Enter your email"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required

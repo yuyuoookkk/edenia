@@ -3,133 +3,169 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log("Seeding database with mockup data...");
+    console.log("Seeding database with production data...");
 
     // Clean up existing data first
     await prisma.transaction.deleteMany({});
     await prisma.villaOwner.deleteMany({});
+    await prisma.monthlyBalance.deleteMany({});
 
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth();
-
-    // 1. Create Villa Owners modeled from the spreadsheet photo
-    const ownersData = [
-        { name: "Fandi Iskandar Johan", unitNumber: "2-5", monthlyDues: 5000000 },
-        { name: "Earl Heighton", unitNumber: "4", monthlyDues: 1300000 },
-        { name: "Dr. Fredy", unitNumber: "6", monthlyDues: 3600000 },
-        { name: "Denis Van Mourik", unitNumber: "7", monthlyDues: 1300000 },
-        { name: "Wendy", unitNumber: "9", monthlyDues: 1300000 },
-        { name: "Bert Stam", unitNumber: "10", monthlyDues: 1300000 },
-        { name: "Roberts", unitNumber: "12", monthlyDues: 650000 },
-        { name: "Shelly", unitNumber: "13", monthlyDues: 1300000 },
-        { name: "Cecilian", unitNumber: "14", monthlyDues: 1000000 },
-        { name: "Rudy", unitNumber: "18", monthlyDues: 800000 },
-        { name: "Magda", unitNumber: "19", monthlyDues: 1300000 }, // Extrapolated from the photo sample
-        { name: "Ian Drysale", unitNumber: "21", monthlyDues: 1300000 },
-        { name: "Diana", unitNumber: "22", monthlyDues: 1300000 },
-    ];
+    // 1. Create Villa Owners (all villas from production, excluding 16,17,30,33,34,35,36)
+    // All villas have monthlyDues of 1,300,000
+    const villaNumbers = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 37, 38, 39, 40, 41, 42];
 
     const owners = [];
-    for (const data of ownersData) {
-        const owner = await prisma.villaOwner.create({ data });
+    for (const num of villaNumbers) {
+        const owner = await prisma.villaOwner.create({
+            data: {
+                name: `Villa ${num} Owner`,
+                unitNumber: String(num),
+                monthlyDues: 1300000,
+            },
+        });
         owners.push(owner);
     }
-    console.log(`Created ${owners.length} owners.`);
+    console.log(`Created ${owners.length} villa owners.`);
 
-    // 2. Add randomized mockup transactions for each owner (Income)
-    // Only adding up to the current month to make unpaid dues realistic
-    const transactions = [];
-    for (const owner of owners) {
-        for (let month = 0; month <= currentMonth; month++) {
-            // Give them a 70% chance of having paid for this month
-            if (Math.random() > 0.3) {
-                // Determine a date somewhere in the middle of the month
-                const day = Math.floor(Math.random() * 20) + 1;
-                const d = new Date(currentYear, month, day);
-                transactions.push({
-                    type: "INCOME",
-                    amount: owner.monthlyDues, // Paid exactly their dues
-                    date: d,
-                    description: `Monthly dues - ${owner.name}`,
-                    category: "Income",
-                    ownerId: owner.id,
-                });
-            }
-        }
+    // Helper to find owner by unit number
+    function findOwner(unitNum) {
+        return owners.find(o => o.unitNumber === String(unitNum));
     }
 
-    // 3. Add random Expense transactions
-    const expenseCategories = [
-        "Wages",
-        "Village Expenses",
-        "Bank Charges",
-        "Computer Office",
-        "Electric Water",
-        "Repairs Maintain",
-        "Garden Expenses",
-        "Misc Expenses"
+    // 2. Add Income transactions matching production data exactly
+    // Format: { villa, month (0-indexed), amount }
+    const incomeData = [
+        // Villa 2: FEB 1,300,000 | MAR 1,300,000
+        { villa: 2, month: 1, amount: 1300000 },
+        { villa: 2, month: 2, amount: 1300000 },
+        // Villa 8: FEB 1,300,000 | MAR 1,300,000 | APR 1,300,000 | MAY 1,300,000
+        { villa: 8, month: 1, amount: 1300000 },
+        { villa: 8, month: 2, amount: 1300000 },
+        { villa: 8, month: 3, amount: 1300000 },
+        { villa: 8, month: 4, amount: 1300000 },
+        // Villa 10: FEB 1,300,000
+        { villa: 10, month: 1, amount: 1300000 },
+        // Villa 11: FEB 1,300,000 | MAR 1,300,000
+        { villa: 11, month: 1, amount: 1300000 },
+        { villa: 11, month: 2, amount: 1300000 },
+        // Villa 12: FEB 1,300,000 | MAR 1,300,000
+        { villa: 12, month: 1, amount: 1300000 },
+        { villa: 12, month: 2, amount: 1300000 },
+        // Villa 13: FEB 1,300,000 | MAR 1,300,000
+        { villa: 13, month: 1, amount: 1300000 },
+        { villa: 13, month: 2, amount: 1300000 },
+        // Villa 18: FEB 1,300,000 | MAR 1,300,000
+        { villa: 18, month: 1, amount: 1300000 },
+        { villa: 18, month: 2, amount: 1300000 },
+        // Villa 23: FEB 1,300,000 | MAR 1,300,000
+        { villa: 23, month: 1, amount: 1300000 },
+        { villa: 23, month: 2, amount: 1300000 },
+        // Villa 24: FEB 1,300,000
+        { villa: 24, month: 1, amount: 1300000 },
+        // Villa 25: FEB 1,300,000 | MAR 1,300,000
+        { villa: 25, month: 1, amount: 1300000 },
+        { villa: 25, month: 2, amount: 1300000 },
+        // Villa 26: FEB 1,300,000 | MAR 1,300,000
+        { villa: 26, month: 1, amount: 1300000 },
+        { villa: 26, month: 2, amount: 1300000 },
+        // Villa 29: FEB 1,300,000 | MAR 1,300,000
+        { villa: 29, month: 1, amount: 1300000 },
+        { villa: 29, month: 2, amount: 1300000 },
+        // Villa 32: FEB 1,300,000 | MAR 1,300,000
+        { villa: 32, month: 1, amount: 1300000 },
+        { villa: 32, month: 2, amount: 1300000 },
+        // Villa 38: FEB 1,300,000 | MAR 1,300,000
+        { villa: 38, month: 1, amount: 1300000 },
+        { villa: 38, month: 2, amount: 1300000 },
+        // Villa 39: FEB 1,300,000 | MAR 1,300,000
+        { villa: 39, month: 1, amount: 1300000 },
+        { villa: 39, month: 2, amount: 1300000 },
+        // Villa 40: FEB 1,300,000 | MAR 1,300,000
+        { villa: 40, month: 1, amount: 1300000 },
+        { villa: 40, month: 2, amount: 1300000 },
+        // Villa 41: FEB 1,300,000 | MAR 1,300,000
+        { villa: 41, month: 1, amount: 1300000 },
+        { villa: 41, month: 2, amount: 1300000 },
     ];
 
-    for (let month = 0; month <= currentMonth; month++) {
-        // Staff salary (monthly)
-        transactions.push({
-            type: "EXPENSE",
-            amount: 27935000,
-            date: new Date(currentYear, month, 28), // End of month
-            description: "Salary Staff",
-            category: "Wages",
-            ownerId: null,
-        });
+    const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-        // Electricity
-        transactions.push({
-            type: "EXPENSE",
-            amount: 1013000 + Math.floor(Math.random() * 200000),
-            date: new Date(currentYear, month, 17),
-            description: "Electricity",
-            category: "Electric Water",
-            ownerId: null,
-        });
+    const transactions = [];
 
-        // Water
-        transactions.push({
-            type: "EXPENSE",
-            amount: 422000 + Math.floor(Math.random() * 50000),
-            date: new Date(currentYear, month, 17),
-            description: "Water",
-            category: "Electric Water",
-            ownerId: null,
-        });
-
-        // Misc/Rubbish
-        transactions.push({
-            type: "EXPENSE",
-            amount: 440000,
-            date: new Date(currentYear, month, 28),
-            description: "Rubbish",
-            category: "Misc Expenses",
-            ownerId: null,
-        });
-
-        // Occasional repairs
-        if (Math.random() > 0.5) {
-            transactions.push({
-                type: "EXPENSE",
-                amount: 200000 + Math.floor(Math.random() * 500000),
-                date: new Date(currentYear, month, 8),
-                description: "Repair street light",
-                category: "Repairs Maintain",
-                ownerId: null,
-            });
+    for (const entry of incomeData) {
+        const owner = findOwner(entry.villa);
+        if (!owner) {
+            console.warn(`Owner for villa ${entry.villa} not found, skipping.`);
+            continue;
         }
+        transactions.push({
+            type: "INCOME",
+            amount: entry.amount,
+            date: new Date(2026, entry.month, 15), // Mid-month
+            description: `Monthly dues - Villa ${entry.villa} (${MONTH_NAMES[entry.month]} 2026)`,
+            category: "Income",
+            ownerId: owner.id,
+        });
     }
+
+    // 3. Add Expense transactions matching production data exactly
+    // From the Expenses Tracker screenshot:
+    // JAN: Village Expenses 1,500,000
+    // FEB: Wages 25,600,000, Village Expenses 1,500,000
+    // MAR: Wages 54,700,000, Village Expenses 3,000,000
+
+    // January expenses
+    transactions.push({
+        type: "EXPENSE",
+        amount: 1500000,
+        date: new Date(2026, 0, 15),
+        description: "Village expenses - January",
+        category: "Village Expenses",
+        ownerId: null,
+    });
+
+    // February expenses
+    transactions.push({
+        type: "EXPENSE",
+        amount: 25600000,
+        date: new Date(2026, 1, 28),
+        description: "Staff wages - February",
+        category: "Wages",
+        ownerId: null,
+    });
+    transactions.push({
+        type: "EXPENSE",
+        amount: 1500000,
+        date: new Date(2026, 1, 15),
+        description: "Village expenses - February",
+        category: "Village Expenses",
+        ownerId: null,
+    });
+
+    // March expenses
+    transactions.push({
+        type: "EXPENSE",
+        amount: 54700000,
+        date: new Date(2026, 2, 28),
+        description: "Staff wages - March",
+        category: "Wages",
+        ownerId: null,
+    });
+    transactions.push({
+        type: "EXPENSE",
+        amount: 3000000,
+        date: new Date(2026, 2, 15),
+        description: "Village expenses - March",
+        category: "Village Expenses",
+        ownerId: null,
+    });
 
     for (const tData of transactions) {
         await prisma.transaction.create({ data: tData });
     }
-    console.log(`Created ${transactions.length} transactions.`);
+    console.log(`Created ${transactions.length} transactions (${incomeData.length} income + ${transactions.length - incomeData.length} expenses).`);
 
-    // 4. Create Security Guards
+    // 4. Create Security Guards (keep existing)
     console.log("Seeding security guards...");
     const guards = [
         {

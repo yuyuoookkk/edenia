@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowUpRight, ArrowDownRight, Folder, FileVideo, CalendarDays, ShieldCheck, ShieldX } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, CalendarDays, ShieldCheck, ShieldX } from "lucide-react";
 import Link from "next/link";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -105,59 +105,6 @@ export default function Home() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {/* Security On Duty Banner */}
-      <Link href="/attendance" className="block focus:outline-none">
-        <Card className={`relative overflow-hidden border-0 shadow-sm transition-all cursor-pointer group hover:shadow-md ${
-          activeGuard
-            ? "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent hover:from-emerald-500/15 ring-1 ring-inset ring-emerald-500/20"
-            : "bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent hover:from-rose-500/15 ring-1 ring-inset ring-rose-500/20"
-        }`}>
-          {/* Subtle left accent bar */}
-          <div className={`absolute left-0 top-0 bottom-0 w-1 ${activeGuard ? "bg-emerald-500" : "bg-rose-500"}`} />
-          
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-5">
-                {activeGuard ? (
-                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-emerald-500/20">
-                    <ShieldCheck className="w-8 h-8 text-emerald-600 dark:text-emerald-500" />
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-rose-500/20">
-                    <ShieldX className="w-8 h-8 text-rose-600 dark:text-rose-500" />
-                  </div>
-                )}
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="font-semibold text-muted-foreground uppercase tracking-wider text-xs">Security Status</p>
-                    {activeGuard && (
-                      <span className="flex h-2 w-2 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                      </span>
-                    )}
-                  </div>
-                  {activeGuard ? (
-                    <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-3">
-                      <p className="text-2xl font-bold tracking-tight text-foreground">{activeGuard.name}</p>
-                      <p className="text-sm font-medium text-emerald-600/80 dark:text-emerald-400/80">
-                        {activeGuard.role} • On duty since {new Date(activeGuard.checkIn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-2xl font-bold tracking-tight text-rose-600 dark:text-rose-500">No guard on duty</p>
-                  )}
-                </div>
-              </div>
-              
-              <div className="hidden sm:flex items-center text-sm font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0">
-                View Log <ArrowUpRight className="ml-1 w-4 h-4" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </Link>
-
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Income Card */}
         <Card className="border-t-4 border-t-emerald-500 shadow-sm hover:bg-emerald-500/5 transition-colors cursor-pointer group">
@@ -234,35 +181,58 @@ export default function Home() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="hover:border-primary/50 transition-colors shadow-sm cursor-pointer group">
-          <Link href="/documentation" className="block w-full h-full">
-            <CardHeader>
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                <Folder className="h-5 w-5 text-primary" />
+      {/* Security On Duty Banner */}
+      <Link href="/attendance" className="block focus:outline-none">
+        <Card className={`relative overflow-hidden border-0 shadow-sm transition-all cursor-pointer group hover:shadow-md ${
+          activeGuard
+            ? "bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent hover:from-emerald-500/15 ring-1 ring-inset ring-emerald-500/20"
+            : "bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent hover:from-rose-500/15 ring-1 ring-inset ring-rose-500/20"
+        }`}>
+          {/* Subtle left accent bar */}
+          <div className={`absolute left-0 top-0 bottom-0 w-1 ${activeGuard ? "bg-emerald-500" : "bg-rose-500"}`} />
+          
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-5">
+                {activeGuard ? (
+                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-emerald-500/20">
+                    <ShieldCheck className="w-8 h-8 text-emerald-600 dark:text-emerald-500" />
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-rose-500/20">
+                    <ShieldX className="w-8 h-8 text-rose-600 dark:text-rose-500" />
+                  </div>
+                )}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-semibold text-muted-foreground uppercase tracking-wider text-xs">Security Status</p>
+                    {activeGuard && (
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                    )}
+                  </div>
+                  {activeGuard ? (
+                    <div className="flex flex-col gap-1 mt-1">
+                      <p className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">{activeGuard.name}</p>
+                      <p className="text-xs sm:text-sm font-medium text-emerald-600/80 dark:text-emerald-400/80 line-clamp-2">
+                        {activeGuard.role} • On duty since {new Date(activeGuard.checkIn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xl sm:text-2xl font-bold tracking-tight text-rose-600 dark:text-rose-500 mt-1">No guard on duty</p>
+                  )}
+                </div>
               </div>
-              <CardTitle>Edenia Documentation</CardTitle>
-              <CardDescription>
-                View photos, documents, and other important references.
-              </CardDescription>
-            </CardHeader>
-          </Link>
-        </Card>
-
-        <Card className="hover:border-indigo-500/50 transition-colors shadow-sm cursor-pointer group">
-          <Link href="/documentation?tab=videos" className="block w-full h-full">
-            <CardHeader>
-              <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
-                <FileVideo className="h-5 w-5 text-indigo-500" />
+              
+              <div className="hidden sm:flex items-center text-sm font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0">
+                View Log <ArrowUpRight className="ml-1 w-4 h-4" />
               </div>
-              <CardTitle>Edenia Video Tour</CardTitle>
-              <CardDescription>
-                Watch video walk-throughs and property tours.
-              </CardDescription>
-            </CardHeader>
-          </Link>
+            </div>
+          </CardContent>
         </Card>
-      </div>
+      </Link>
     </div>
   );
 }

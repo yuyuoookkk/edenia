@@ -6,8 +6,10 @@ import { put } from "@vercel/blob";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
-// Increase body size limit for file uploads (default is ~1MB)
+// Increase body size limit for file uploads
 export const maxDuration = 60; // seconds
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 function shouldUseVercelBlob() {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
@@ -27,6 +29,13 @@ export async function POST(request: Request) {
 
         if (!file || !type || !title) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        }
+
+        if (file.size > MAX_FILE_SIZE) {
+            return NextResponse.json(
+                { error: `File too large. Maximum size is 10 MB (got ${(file.size / 1024 / 1024).toFixed(1)} MB)` },
+                { status: 413 }
+            );
         }
 
         const safeFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;

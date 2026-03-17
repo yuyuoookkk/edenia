@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu, Home, Settings, LogOut } from "lucide-react";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { navItems } from "@/components/layout/sidebar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,22 +36,25 @@ export function Header({ userName }: { userName?: string }) {
                                 {navItems.map((item) => {
                                     const Icon = item.icon;
                                     return (
-                                        <Link
-                                            key={item.name}
-                                            href={item.href}
-                                            className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                                        >
-                                            <Icon className="w-4 h-4" />
-                                            {item.name}
-                                        </Link>
+                                        <SheetClose asChild key={item.name}>
+                                            <Link
+                                                href={item.href}
+                                                className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                                            >
+                                                <Icon className="w-4 h-4" />
+                                                {item.name}
+                                            </Link>
+                                        </SheetClose>
                                     );
                                 })}
                             </nav>
                             <div className="mt-auto px-2 border-t pt-4">
-                                <Link href="/settings" className="flex items-center gap-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                                    <Settings className="w-4 h-4" />
-                                    Settings
-                                </Link>
+                                <SheetClose asChild>
+                                    <Link href="/settings" className="flex items-center gap-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                                        <Settings className="w-4 h-4" />
+                                        Settings
+                                    </Link>
+                                </SheetClose>
                             </div>
                         </div>
                     </SheetContent>

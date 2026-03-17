@@ -88,7 +88,6 @@ export default function OwnersPage() {
         let totalPaid = 0;
         const paymentsByMonth = MONTHS.map((_, index) => {
             const txnsThisMonth = owner.transactions.filter(t => new Date(t.date).getMonth() === index);
-            if (txnsThisMonth.length === 0) return null;
             const paid = txnsThisMonth.reduce((s, t) => s + t.amount, 0);
             totalPaid += paid;
             return paid;
@@ -103,8 +102,8 @@ export default function OwnersPage() {
                 </TableCell>
 
                 {paymentsByMonth.map((paid, i) => (
-                    <TableCell key={`paid-${i}`} className={`border-r text-right text-gray-700 ${extraClassName || ""}`}>
-                        {paid !== null ? formatIDR(paid) : ""}
+                    <TableCell key={`paid-${i}`} className={`border-r text-right ${paid > 0 ? "text-gray-700" : i === 0 ? "text-emerald-600" : ""} ${extraClassName || ""}`}>
+                        {paid > 0 ? formatIDR(paid) : i === 0 ? "0" : ""}
                     </TableCell>
                 ))}
 
@@ -126,9 +125,9 @@ export default function OwnersPage() {
     };
 
     return (
-        <div className="space-y-6 max-w-[1400px] mx-auto overflow-x-hidden">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold tracking-tight uppercase">Monthly Income From Villa Owners / {currentYear}</h1>
+        <div className="space-y-6 max-w-[1400px] mx-auto w-full">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight uppercase">Income Tracker</h1>
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Year:</span>
                     <input
@@ -171,7 +170,7 @@ export default function OwnersPage() {
                                                     <div className="font-bold text-base whitespace-nowrap">{villaNumber}</div>
                                                 </TableCell>
                                                 {MONTHS.map((_, i) => (
-                                                    <TableCell key={`empty-month-${i}`} className="border-r text-right text-gray-700"></TableCell>
+                                                    <TableCell key={`empty-month-${i}`} className={`border-r text-right ${i === 0 ? "text-emerald-600" : ""}`}>{i === 0 ? "0" : ""}</TableCell>
                                                 ))}
                                                 <TableCell className="border-r text-right font-bold text-muted-foreground bg-muted/20">
                                                     <span className="font-normal">-</span>
@@ -184,11 +183,7 @@ export default function OwnersPage() {
                                     return renderOwnerRow(owner, owner.unitNumber || String(villaNumber));
                                 });
 
-                                const unmappedRows = owners.filter(o => !mappedOwnerIds.has(o.id)).map(owner => {
-                                    return renderOwnerRow(owner, owner.unitNumber || "N/A", "border-t-2 border-t-amber-200");
-                                });
-
-                                return [...rows, ...unmappedRows];
+                                return rows;
                             })()}
 
                             <TableRow className="bg-emerald-50/50 hover:bg-emerald-50/80 transition-colors border-t-2 border-emerald-200">

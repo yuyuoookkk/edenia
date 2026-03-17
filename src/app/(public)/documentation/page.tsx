@@ -38,8 +38,8 @@ export default function DocumentationPage() {
     return (
         <div className="space-y-6 max-w-6xl mx-auto">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Edenia Documentation</h1>
-                <p className="text-muted-foreground">Gallery of photos and video tours.</p>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Edenia Documentation</h1>
+                <p className="text-muted-foreground mt-1 text-sm sm:text-base">Gallery of photos and video tours.</p>
             </div>
 
             <Tabs defaultValue="photos" className="w-full">
