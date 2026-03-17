@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
-import { calculateOwnerDebt, generateInvoiceHTML } from "@/lib/invoice-template";
+import { calculateOwnerDebt, generateInvoiceHTML, generateReceiptHTML } from "@/lib/invoice-template";
 
 const MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June",
@@ -42,6 +42,7 @@ export async function GET(request: Request) {
             villa: string;
             email: string | null;
             balance: number;
+            type: "invoice" | "receipt" | "skipped";
             status: "sent" | "skipped" | "failed";
             error?: string;
         }[] = [];
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
                     villa: owner.unitNumber || "N/A",
                     email: null,
                     balance: 0,
+                    type: "skipped",
                     status: "skipped",
                     error: "No email address",
                 });
@@ -71,21 +73,32 @@ export async function GET(request: Request) {
                 currentMonth
             );
 
-            // Generate invoice HTML
-            const html = generateInvoiceHTML({
-                ownerName: owner.name,
+            const emailData = {
                 villaNumber: owner.unitNumber || "N/A",
                 invoiceMonth,
                 totalRequired: debt.totalRequired,
                 totalPaid: debt.totalPaid,
                 balance: debt.balance,
                 monthsBilled: debt.monthsBilled,
-            });
+                paidThisMonth: debt.paidThisMonth,
+            };
 
-            // Send email
-            const subject = debt.balance < 0
-                ? `[Invoice] Edenia Private Villas - ${invoiceMonth} — Arrears`
-                : `[Invoice] Edenia Private Villas - ${invoiceMonth} — No Arrears`;
+            // Decide: Receipt (paid this month) vs Invoice (not paid / has debt)
+            let html: string;
+            let subject: string;
+            let emailType: "invoice" | "receipt";
+
+            if (debt.paidThisMonth > 0) {
+                // Owner paid this month → send Receipt
+                emailType = "receipt";
+                html = generateReceiptHTML(emailData);
+                subject = `[Receipt] Edenia Private Villas - ${invoiceMonth} — Payment Received`;
+            } else {
+                // Owner did NOT pay this month → send Invoice
+                emailType = "invoice";
+                html = generateInvoiceHTML(emailData);
+                subject = `[Invoice] Edenia Private Villas - ${invoiceMonth} — Payment Due`;
+            }
 
             const result = await sendEmail(owner.email, subject, html);
 
@@ -94,18 +107,21 @@ export async function GET(request: Request) {
                 villa: owner.unitNumber || "N/A",
                 email: owner.email,
                 balance: debt.balance,
+                type: emailType,
                 status: result.success ? "sent" : "failed",
                 error: result.error,
             });
         }
 
         const sent = results.filter((r) => r.status === "sent").length;
+        const invoices = results.filter((r) => r.type === "invoice" && r.status === "sent").length;
+        const receipts = results.filter((r) => r.type === "receipt" && r.status === "sent").length;
         const skipped = results.filter((r) => r.status === "skipped").length;
         const failed = results.filter((r) => r.status === "failed").length;
 
         return NextResponse.json({
             invoiceMonth,
-            summary: { total: results.length, sent, skipped, failed },
+            summary: { total: results.length, sent, invoices, receipts, skipped, failed },
             results,
         });
     } catch (error: any) {
