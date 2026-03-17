@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import path from "path";
 
 const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -19,6 +20,13 @@ export async function sendEmail(
             to,
             subject,
             html,
+            attachments: [
+                {
+                    filename: "signature.png",
+                    path: path.join(process.cwd(), "public", "uploads", "signature.png"),
+                    cid: "signature", // Referenced in HTML as <img src="cid:signature">
+                },
+            ],
         });
         return { success: true };
     } catch (error: any) {
