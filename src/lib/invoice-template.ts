@@ -189,7 +189,7 @@ ${headerSection("EDENIA PRIVATE VILLAS", "Monthly Invoice", "#7f1d1d", "#991b1b"
                                     <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Amount</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Total Dues Required</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Monthly Dues (${data.monthsBilled} months × ${formatIDR(1_300_000)})</td>
                                     <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(data.totalRequired)}</td>
                                 </tr>
                                 <tr>
@@ -268,7 +268,7 @@ ${headerSection("EDENIA PRIVATE VILLAS", "Payment Receipt", "#064e3b", "#047857"
                                     <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;text-align:right;font-weight:600;">${formatIDR(data.paidThisMonth)}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Total Dues Required</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Monthly Dues (${data.monthsBilled} months × ${formatIDR(1_300_000)})</td>
                                     <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(data.totalRequired)}</td>
                                 </tr>
                                 <tr>
