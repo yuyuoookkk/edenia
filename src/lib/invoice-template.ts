@@ -173,7 +173,7 @@ export function generateInvoiceHTML(data: OwnerInvoiceData): string {
                     <!-- Signature -->
                     <tr>
                         <td style="padding:0 40px 24px;">
-                            <table role="presentation" cellpadding="0" cellspacing="0">
+                            <table role="presentation" cellpadding="0" cellspacing="0" style="background-color:#ffffff;padding:16px 20px;border-radius:8px;border:1px solid #e5e7eb;">
                                 <tr>
                                     <td>
                                         <img src="cid:signature" alt="Signature" style="height:60px;width:auto;" />
