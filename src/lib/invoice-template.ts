@@ -152,6 +152,10 @@ ${content}
 export function generateInvoiceHTML(data: EmailData): string {
     const totalDue = data.unpaidMonths.length * MONTHLY_DUES;
 
+    // Parse invoiceMonth (e.g. "March 2026") to build the due date
+    const parts = data.invoiceMonth.split(" ");
+    const dueDate = `15 ${parts[0]} ${parts[1]}`;
+
     // Build a row for each unpaid month
     const monthRows = data.unpaidMonths.map((month) => `
                                 <tr>
@@ -211,7 +215,7 @@ ${monthRows}
                                 <tr>
                                     <td style="padding:20px 24px;text-align:center;">
                                         <p style="margin:0;font-size:18px;font-weight:700;color:#DC2626;">⚠ Payment Required: ${formatIDR(totalDue)}</p>
-                                        <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">Please settle this amount at your earliest convenience.</p>
+                                        <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">Please settle this amount by ${dueDate}.</p>
                                     </td>
                                 </tr>
                             </table>
