@@ -27,7 +27,7 @@ const villaEmails = {
     "24": "bert4all24@gmail.com",
     "25": "chrispotts@fastmail.com",
     "26": "cmarmagne@hotmail.com",
-    "27": "priandika@yahoo.com",
+    "27": "encim@yahoo.com",
     "28": "fireberg1@bigpond.com",
     "29": "emabdg1@gmail.com",
     "31": "h3n520@yahoo.com",
@@ -37,7 +37,7 @@ const villaEmails = {
     "39": "hul.kuhn@gmail.com",
     "40": "marc.jarrault@gmail.com",
     "41": "jackolas84@yahoo.com",
-    "42": "priandika@yahoo.com",
+    "42": "encim@yahoo.com",
 };
 
 async function main() {
