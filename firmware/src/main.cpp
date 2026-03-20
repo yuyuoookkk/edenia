@@ -1,32 +1,35 @@
 /******************************************************************************
- * main.cpp — Edenia Villa Security Guard Attendance System
+ * main.cpp — Edenia Villa Security Guard Attendance System (v2.0)
  *
- * ESP32 + R307 Fingerprint Sensor + 16x2 I2C LCD + HTTP API
+ * ESP32 + R307 Fingerprint Sensor + 16x2 I2C LCD + WiFi HTTP
  *
- * Features:
- *   • Fingerprint-based check-in / check-out via server API
- *   • Automatic shift replacement handled server-side
- *   • Real-time LCD feedback for every system state
- *   • HTTP POST to Next.js API on each fingerprint scan
- *   • Server handles all attendance logic (check-in, check-out, replacement)
+ * How it works:
+ *   1. Guard places finger on R307 sensor
+ *   2. ESP32 identifies the fingerprint
+ *   3. ESP32 sends HTTP POST to Next.js API with the fingerprint ID
+ *   4. Server handles all logic (check-in/out, late detection, replacement)
+ *   5. ESP32 displays the server's response on the LCD
+ *
+ * All attendance logic lives on the server — the ESP32 is a thin client
+ * that handles scanning + display only.
  *
  * Hardware Wiring:
- *   R307 Sensor:  TX → GPIO16 (RX2), RX → GPIO17 (TX2), VCC → 3.3V, GND
- *   I2C LCD:      SDA → GPIO21, SCL → GPIO22, VCC → 5V, GND
+ *   R307 Sensor:  Pin3(TXD) → GPIO16, Pin4(RXD) → GPIO17, Pin1(VCC) → 3.3V
+ *   I2C LCD:      SDA → GPIO21, SCL → GPIO22, VCC → 5V, GND → GND
  *
  * (c) 2026 Edenia Villa Management System
  ******************************************************************************/
 
-#include "config.h"
-#include <Adafruit_Fingerprint.h>
 #include <Arduino.h>
-#include <ArduinoJson.h>
-#include <HTTPClient.h>
-#include <LiquidCrystal_I2C.h>
-#include <NTPClient.h>
 #include <WiFi.h>
-#include <WiFiUdp.h>
+#include <HTTPClient.h>
 #include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Adafruit_Fingerprint.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include <ArduinoJson.h>
+#include "config.h"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Global Objects
@@ -43,63 +46,40 @@ Adafruit_Fingerprint finger = Adafruit_Fingerprint(&fingerSerial);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, NTP_SERVER, UTC_OFFSET_SECONDS, 60000);
 
-// Timing trackers
-unsigned long lastScanTime = 0;
-unsigned long lastLcdMessage = 0;
-unsigned long lastClockUpdate = 0;
-unsigned long bootTime = 0;
-bool showingMessage = false;
-
-#define CLOCK_UPDATE_INTERVAL_MS 1000  // Update clock display every second
+// ═══════════════════════════════════════════════════════════════════════════════
+// Timing Trackers
+// ═══════════════════════════════════════════════════════════════════════════════
+unsigned long lastHeartbeat    = 0;
+unsigned long lastLcdMessage   = 0;
+unsigned long lastScanTime     = 0;
+unsigned long bootTime         = 0;
+bool          showingMessage   = false;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LCD Helper Functions
 // ═══════════════════════════════════════════════════════════════════════════════
 
-void lcdPrint(const char *line1, const char *line2) {
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print(line1);
-  lcd.setCursor(0, 1);
-  lcd.print(line2);
+void lcdPrint(const char* line1, const char* line2) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(line1);
+    lcd.setCursor(0, 1);
+    lcd.print(line2);
 }
 
-void lcdShowTemp(const char *line1, const char *line2) {
-  lcdPrint(line1, line2);
-  lastLcdMessage = millis();
-  showingMessage = true;
-}
-
-void lcdShowClock() {
-  timeClient.update();
-  int hours = timeClient.getHours();
-  int minutes = timeClient.getMinutes();
-  int seconds = timeClient.getSeconds();
-
-  // Get epoch time for date calculation
-  unsigned long epochTime = timeClient.getEpochTime();
-  struct tm *ptm = gmtime((time_t *)&epochTime);
-  int day = ptm->tm_mday;
-  int month = ptm->tm_mon + 1;
-  int year = ptm->tm_year + 1900;
-
-  // Line 1: "Edenia Security" (branding)
-  // Line 2: "HH:MM:SS  DD/MM" (time + date)
-  char line2[17];
-  snprintf(line2, sizeof(line2), "%02d:%02d:%02d  %02d/%02d",
-           hours, minutes, seconds, day, month);
-
-  lcd.setCursor(0, 0);
-  lcd.print("Edenia Security ");
-  lcd.setCursor(0, 1);
-  lcd.print(line2);
-
-  lastClockUpdate = millis();
+void lcdShowTemp(const char* line1, const char* line2) {
+    lcdPrint(line1, line2);
+    lastLcdMessage = millis();
+    showingMessage = true;
 }
 
 void lcdShowIdle() {
-  lcdShowClock();
-  showingMessage = false;
+    char timeStr[6];
+    snprintf(timeStr, sizeof(timeStr), "%02d:%02d", timeClient.getHours(), timeClient.getMinutes());
+    char line2[17];
+    snprintf(line2, sizeof(line2), "%s Scan finger", timeStr);
+    lcdPrint("Edenia Security", line2);
+    showingMessage = false;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -107,141 +87,203 @@ void lcdShowIdle() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void connectWiFi() {
-  Serial.print("[WiFi] Connecting to ");
-  Serial.println(WIFI_SSID);
-  lcdPrint("Connecting WiFi", WIFI_SSID);
+    Serial.print("[WiFi] Connecting to ");
+    Serial.println(WIFI_SSID);
+    lcdPrint("Connecting WiFi", WIFI_SSID);
 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  unsigned long startAttempt = millis();
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-
-    if (millis() - startAttempt > WIFI_CONNECT_TIMEOUT_MS) {
-      Serial.println("\n[WiFi] Connection timeout!");
-      lcdPrint("WiFi FAILED!", "Check settings");
-      delay(3000);
-      ESP.restart();
+    unsigned long startAttempt = millis();
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+        if (millis() - startAttempt > WIFI_CONNECT_TIMEOUT_MS) {
+            Serial.println("\n[WiFi] Connection timeout!");
+            lcdPrint("WiFi FAILED!", "Restarting...");
+            delay(3000);
+            ESP.restart();
+        }
     }
-  }
 
-  Serial.println();
-  Serial.print("[WiFi] Connected! IP: ");
-  Serial.println(WiFi.localIP());
+    Serial.println();
+    Serial.print("[WiFi] Connected! IP: ");
+    Serial.println(WiFi.localIP());
 
-  char ipStr[17];
-  snprintf(ipStr, sizeof(ipStr), "IP:%s", WiFi.localIP().toString().c_str());
-  lcdPrint("WiFi Connected!", ipStr);
-  delay(2000);
+    char ipStr[17];
+    snprintf(ipStr, sizeof(ipStr), "IP:%s", WiFi.localIP().toString().c_str());
+    lcdPrint("WiFi Connected!", ipStr);
+    delay(2000);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Guard Lookup (for LCD display — name lookup from local config)
+// Guard Lookup (for LCD display names)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 int findGuardByFingerprint(uint8_t fpID) {
-  for (int i = 0; i < NUM_GUARDS; i++) {
-    if (GUARDS[i].fingerprintID == fpID) {
-      return i;
+    for (int i = 0; i < NUM_GUARDS; i++) {
+        if (GUARDS[i].fingerprintID == fpID) {
+            return i;
+        }
     }
-  }
-  return -1;
+    return -1;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// HTTP API Communication
+// HTTP: Send Fingerprint Scan to Server
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Send a fingerprint scan to the server API.
- * The server handles all logic: check-in, check-out, auto-replacement.
- * Returns the server response for LCD display.
+ * POST /api/attendance/scan with { fingerprintId: N }
+ * 
+ * Server returns JSON like:
+ * {
+ *   "action": "checkin" | "checkout" | "replacement",
+ *   "guard": { "name": "...", "role": "..." },
+ *   "message": "...",
+ *   "status": "present" | "late",
+ *   "previousGuard": { "name": "...", ... } | null,
+ *   "hoursWorked": 12.5,
+ *   "checkIn": "...",
+ *   "checkOut": "..."
+ * }
  */
-void sendScanToServer(int fingerprintId, int guardIdx) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[HTTP] WiFi not connected, reconnecting...");
-    connectWiFi();
-  }
-
-  HTTPClient http;
-  String url = String(API_BASE_URL) + String(API_SCAN_PATH);
-
-  Serial.printf("[HTTP] POST %s\n", url.c_str());
-
-  http.begin(url);
-  http.addHeader("Content-Type", "application/json");
-  http.setTimeout(10000); // 10 second timeout
-
-  // Build JSON payload
-  StaticJsonDocument<128> requestDoc;
-  requestDoc["fingerprintId"] = fingerprintId;
-  String requestBody;
-  serializeJson(requestDoc, requestBody);
-
-  Serial.printf("[HTTP] Body: %s\n", requestBody.c_str());
-
-  int httpCode = http.POST(requestBody);
-
-  if (httpCode > 0) {
-    String response = http.getString();
-    Serial.printf("[HTTP] Response (%d): %s\n", httpCode, response.c_str());
-
-    // Parse JSON response
-    StaticJsonDocument<512> responseDoc;
-    DeserializationError err = deserializeJson(responseDoc, response);
-
-    if (err) {
-      Serial.printf("[HTTP] JSON parse error: %s\n", err.c_str());
-      lcdShowTemp("Server Error", "Bad response");
-      http.end();
-      return;
+void sendScanToServer(uint8_t fingerprintId, int guardIdx) {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[HTTP] WiFi not connected, reconnecting...");
+        lcdShowTemp("WiFi Lost!", "Reconnecting...");
+        connectWiFi();
     }
 
-    if (httpCode == 200) {
-      const char *action = responseDoc["action"];
-      const char *message = responseDoc["message"];
-      const char *guardName = responseDoc["guard"]["name"];
+    HTTPClient http;
+    String url = String(SERVER_URL) + API_SCAN_PATH;
 
-      char lcdLine1[17];
-      char lcdLine2[17];
+    Serial.printf("[HTTP] POST %s (fingerprintId: %d)\n", url.c_str(), fingerprintId);
+    lcdPrint(GUARDS[guardIdx].name, "Sending...");
 
-      if (strcmp(action, "checkin") == 0) {
-        snprintf(lcdLine1, sizeof(lcdLine1), "%s", guardName);
-        const char *status = responseDoc["status"];
-        if (strcmp(status, "late") == 0) {
-          snprintf(lcdLine2, sizeof(lcdLine2), "Checked In LATE");
-        } else {
-          snprintf(lcdLine2, sizeof(lcdLine2), "Checked In OK!");
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(HTTP_TIMEOUT_MS);
+
+    // Build JSON body
+    String body = "{\"fingerprintId\":" + String(fingerprintId) + "}";
+
+    int httpCode = http.POST(body);
+
+    if (httpCode > 0) {
+        String response = http.getString();
+        Serial.printf("[HTTP] Response %d: %s\n", httpCode, response.c_str());
+
+        // Parse the JSON response
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, response);
+
+        if (error) {
+            Serial.printf("[HTTP] JSON parse error: %s\n", error.c_str());
+            lcdShowTemp("Server Error", "Bad response");
+            http.end();
+            return;
         }
-      } else if (strcmp(action, "checkout") == 0) {
-        snprintf(lcdLine1, sizeof(lcdLine1), "%s", guardName);
-        float hours = responseDoc["hoursWorked"];
-        snprintf(lcdLine2, sizeof(lcdLine2), "Out %.1fh Bye!", hours);
-      } else if (strcmp(action, "replacement") == 0) {
-        snprintf(lcdLine1, sizeof(lcdLine1), "%s", guardName);
-        snprintf(lcdLine2, sizeof(lcdLine2), "Replacing shift");
-      } else {
-        snprintf(lcdLine1, sizeof(lcdLine1), "%s", guardName);
-        snprintf(lcdLine2, sizeof(lcdLine2), "Processed");
-      }
 
-      lcdShowTemp(lcdLine1, lcdLine2);
-    } else if (httpCode == 404) {
-      lcdShowTemp("Unknown Print", "Not registered");
+        if (httpCode == 200) {
+            const char* action = doc["action"] | "unknown";
+            const char* guardName = doc["guard"]["name"] | GUARDS[guardIdx].name;
+            const char* message = doc["message"] | "";
+
+            char lcdLine2[17];
+
+            if (strcmp(action, "checkin") == 0) {
+                const char* status = doc["status"] | "present";
+                char timeStr[6];
+                snprintf(timeStr, sizeof(timeStr), "%02d:%02d",
+                         timeClient.getHours(), timeClient.getMinutes());
+
+                if (strcmp(status, "late") == 0) {
+                    snprintf(lcdLine2, sizeof(lcdLine2), "In:%s  LATE", timeStr);
+                } else {
+                    snprintf(lcdLine2, sizeof(lcdLine2), "In:%s  OK!", timeStr);
+                }
+                lcdShowTemp(guardName, lcdLine2);
+            }
+            else if (strcmp(action, "checkout") == 0) {
+                float hours = doc["hoursWorked"] | 0.0f;
+                snprintf(lcdLine2, sizeof(lcdLine2), "Out! %.1fh work", hours);
+                lcdShowTemp(guardName, lcdLine2);
+            }
+            else if (strcmp(action, "replacement") == 0) {
+                // New guard replacing previous
+                const char* prevName = doc["previousGuard"]["name"] | "Previous";
+                char line1[17];
+                snprintf(line1, sizeof(line1), "%s->", prevName);
+                snprintf(lcdLine2, sizeof(lcdLine2), "%s In!", guardName);
+                lcdShowTemp(line1, lcdLine2);
+
+                // Show replacement for a bit longer, then show new guard
+                delay(LCD_MESSAGE_DURATION_MS);
+                const char* status = doc["status"] | "present";
+                char timeStr[6];
+                snprintf(timeStr, sizeof(timeStr), "%02d:%02d",
+                         timeClient.getHours(), timeClient.getMinutes());
+                if (strcmp(status, "late") == 0) {
+                    snprintf(lcdLine2, sizeof(lcdLine2), "In:%s  LATE", timeStr);
+                } else {
+                    snprintf(lcdLine2, sizeof(lcdLine2), "In:%s  OK!", timeStr);
+                }
+                lcdShowTemp(guardName, lcdLine2);
+            }
+            else {
+                lcdShowTemp(guardName, "Done!");
+            }
+        }
+        else if (httpCode == 404) {
+            lcdShowTemp("Not Registered", "Contact Admin");
+            Serial.println("[HTTP] Fingerprint not registered on server");
+        }
+        else {
+            const char* errMsg = doc["error"] | "Server Error";
+            char lcdLine2[17];
+            snprintf(lcdLine2, sizeof(lcdLine2), "Err:%d", httpCode);
+            lcdShowTemp(errMsg, lcdLine2);
+        }
     } else {
-      char errLine[17];
-      snprintf(errLine, sizeof(errLine), "Error: %d", httpCode);
-      lcdShowTemp("Server Error", errLine);
+        Serial.printf("[HTTP] POST failed: %s\n", http.errorToString(httpCode).c_str());
+        lcdShowTemp("Server Offline", "Try Again");
     }
-  } else {
-    Serial.printf("[HTTP] Request failed: %s\n",
-                  http.errorToString(httpCode).c_str());
-    lcdShowTemp("Network Error", "Check server");
-  }
 
-  http.end();
+    http.end();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HTTP: Send Heartbeat
+// ═══════════════════════════════════════════════════════════════════════════════
+
+void sendHeartbeat() {
+    if (WiFi.status() != WL_CONNECTED) return;
+
+    HTTPClient http;
+    String url = String(SERVER_URL) + API_HEARTBEAT;
+
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(5000);
+
+    unsigned long uptimeSeconds = (millis() - bootTime) / 1000;
+    int rssi = WiFi.RSSI();
+
+    String body = "{\"status\":\"online\",\"uptime\":" + String(uptimeSeconds) +
+                  ",\"rssi\":" + String(rssi) +
+                  ",\"fw\":\"" + FW_VERSION + "\"}";
+
+    int httpCode = http.POST(body);
+
+    if (httpCode > 0) {
+        Serial.printf("[Heartbeat] Sent OK (%d) — uptime: %lus, rssi: %d\n",
+                      httpCode, uptimeSeconds, rssi);
+    } else {
+        Serial.printf("[Heartbeat] Failed: %s\n", http.errorToString(httpCode).c_str());
+    }
+
+    http.end();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -249,38 +291,35 @@ void sendScanToServer(int fingerprintId, int guardIdx) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 int scanFingerprint() {
-  uint8_t p = finger.getImage();
+    uint8_t p = finger.getImage();
 
-  if (p == FINGERPRINT_NOFINGER) {
-    return -1; // No finger on sensor
-  }
+    if (p == FINGERPRINT_NOFINGER) return -1;
+    if (p != FINGERPRINT_OK) {
+        Serial.println("[Finger] Image capture failed");
+        return -2;
+    }
 
-  if (p != FINGERPRINT_OK) {
-    Serial.println("[Finger] Image capture failed");
-    return -2; // Sensor error
-  }
+    lcdPrint("Scanning...", "Hold still");
+    Serial.println("[Finger] Image captured, converting...");
 
-  lcdPrint("Scanning...", "Hold still");
-  Serial.println("[Finger] Image captured, converting...");
+    p = finger.image2Tz();
+    if (p != FINGERPRINT_OK) {
+        Serial.println("[Finger] Image conversion failed");
+        return -2;
+    }
 
-  p = finger.image2Tz();
-  if (p != FINGERPRINT_OK) {
-    Serial.println("[Finger] Image conversion failed");
-    return -2;
-  }
-
-  p = finger.fingerSearch();
-  if (p == FINGERPRINT_OK) {
-    Serial.printf("[Finger] Match found! ID: %d, Confidence: %d\n",
-                  finger.fingerID, finger.confidence);
-    return finger.fingerID;
-  } else if (p == FINGERPRINT_NOTFOUND) {
-    Serial.println("[Finger] No match found");
-    return -3; // Not recognized
-  } else {
-    Serial.println("[Finger] Search error");
-    return -2;
-  }
+    p = finger.fingerSearch();
+    if (p == FINGERPRINT_OK) {
+        Serial.printf("[Finger] Match! ID: %d, Confidence: %d\n",
+                      finger.fingerID, finger.confidence);
+        return finger.fingerID;
+    } else if (p == FINGERPRINT_NOTFOUND) {
+        Serial.println("[Finger] No match");
+        return -3;
+    } else {
+        Serial.println("[Finger] Search error");
+        return -2;
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -288,74 +327,75 @@ int scanFingerprint() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void setup() {
-  bootTime = millis();
+    bootTime = millis();
 
-  // Initialize Serial
-  Serial.begin(115200);
-  delay(100);
-  Serial.println();
-  Serial.println("╔══════════════════════════════════════════╗");
-  Serial.println("║ Edenia Villa Security Attendance System  ║");
-  Serial.println("║         HTTP API Mode v2.0.0             ║");
-  Serial.println("╚══════════════════════════════════════════╝");
+    Serial.begin(115200);
+    delay(100);
+    Serial.println();
+    Serial.println("╔═══════════════════════════════════════════╗");
+    Serial.println("║  Edenia Villa Attendance System v2.0       ║");
+    Serial.println("║  ESP32 + R307 + LCD + WiFi HTTP            ║");
+    Serial.println("╚═══════════════════════════════════════════╝");
 
-  // Initialize LCD
-  lcd.init();
-  lcd.backlight();
-  lcdPrint("Edenia Security", "Starting...");
-  delay(1500);
+    // Initialize LCD
+    lcd.init();
+    lcd.backlight();
+    lcdPrint("Edenia Security", "Starting...");
+    delay(1500);
 
-  // Initialize fingerprint sensor
-  Serial.println("[Init] Starting fingerprint sensor...");
-  fingerSerial.begin(57600, SERIAL_8N1, FINGER_RX_PIN, FINGER_TX_PIN);
-  finger.begin(57600);
+    // Initialize fingerprint sensor
+    Serial.println("[Init] Starting fingerprint sensor...");
+    fingerSerial.begin(57600, SERIAL_8N1, FINGER_RX_PIN, FINGER_TX_PIN);
+    finger.begin(57600);
 
-  if (finger.verifyPassword()) {
-    Serial.println("[Init] Fingerprint sensor found!");
-    lcdPrint("Sensor OK", "R307 Ready");
-  } else {
-    Serial.println("[Init] ERROR: Fingerprint sensor not found!");
-    lcdPrint("Sensor ERROR!", "Check wiring");
-    while (1) {
-      delay(1000);
+    if (finger.verifyPassword()) {
+        Serial.println("[Init] Fingerprint sensor found!");
+        lcdPrint("Sensor OK", "R307 Ready");
+    } else {
+        Serial.println("[Init] ERROR: Fingerprint sensor not found!");
+        lcdPrint("Sensor ERROR!", "Check wiring");
+        while (1) { delay(1000); }
     }
-  }
-  delay(1000);
+    delay(1000);
 
-  finger.getParameters();
-  Serial.printf("[Init] Sensor capacity: %d, Security level: %d\n",
-                finger.capacity, finger.security_level);
+    finger.getParameters();
+    Serial.printf("[Init] Sensor capacity: %d, Security level: %d\n",
+                  finger.capacity, finger.security_level);
 
-  // Connect WiFi
-  connectWiFi();
+    // Connect WiFi
+    connectWiFi();
 
-  // Start NTP
-  Serial.println("[Init] Syncing time via NTP...");
-  lcdPrint("Syncing Clock", "Please wait...");
-  timeClient.begin();
+    // Start NTP
+    Serial.println("[Init] Syncing time...");
+    lcdPrint("Syncing Clock", "Please wait...");
+    timeClient.begin();
 
-  int ntpRetries = 10;
-  while (!timeClient.update() && ntpRetries > 0) {
-    timeClient.forceUpdate();
-    delay(500);
-    ntpRetries--;
-  }
+    int ntpRetries = 10;
+    while (!timeClient.update() && ntpRetries > 0) {
+        timeClient.forceUpdate();
+        delay(500);
+        ntpRetries--;
+    }
 
-  char timeStr[6];
-  snprintf(timeStr, sizeof(timeStr), "%02d:%02d", timeClient.getHours(),
-           timeClient.getMinutes());
-  char timeLine[17];
-  snprintf(timeLine, sizeof(timeLine), "Time: %s", timeStr);
-  lcdPrint("Clock Synced!", timeLine);
-  Serial.printf("[Init] Time synced: %s\n", timeStr);
-  delay(1500);
+    char timeStr[6];
+    snprintf(timeStr, sizeof(timeStr), "%02d:%02d",
+             timeClient.getHours(), timeClient.getMinutes());
+    char timeLine[17];
+    snprintf(timeLine, sizeof(timeLine), "Time: %s", timeStr);
+    lcdPrint("Clock Synced!", timeLine);
+    Serial.printf("[Init] Time synced: %s\n", timeStr);
+    delay(1500);
 
-  // Show idle screen
-  lcdShowIdle();
+    // Send initial heartbeat
+    sendHeartbeat();
+    lastHeartbeat = millis();
 
-  Serial.println("[Init] System ready! Waiting for fingerprint scans...");
-  Serial.printf("[Init] API endpoint: %s%s\n", API_BASE_URL, API_SCAN_PATH);
-  Serial.println("────────────────────────────────────────────");
+    // Show idle screen
+    lcdShowIdle();
+
+    Serial.println("[Init] System ready! Waiting for fingerprint scans...");
+    Serial.printf("[Init] Server: %s\n", SERVER_URL);
+    Serial.println("────────────────────────────────────────────");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -363,61 +403,76 @@ void setup() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 void loop() {
-  // ── Keep time updated
-  timeClient.update();
+    // Keep time updated
+    timeClient.update();
 
-  // ── Clear temporary LCD messages
-  if (showingMessage &&
-      (millis() - lastLcdMessage >= LCD_MESSAGE_DURATION_MS)) {
-    lcdShowIdle();
-  }
+    // Periodic heartbeat
+    if (millis() - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
+        sendHeartbeat();
+        lastHeartbeat = millis();
+    }
 
-  // ── Update clock display every second when idle
-  if (!showingMessage &&
-      (millis() - lastClockUpdate >= CLOCK_UPDATE_INTERVAL_MS)) {
-    lcdShowClock();
-  }
+    // Clear temporary LCD messages → return to idle
+    if (showingMessage && (millis() - lastLcdMessage >= LCD_MESSAGE_DURATION_MS)) {
+        lcdShowIdle();
+    }
 
-  // ── Scan cooldown
-  if (millis() - lastScanTime < SCAN_COOLDOWN_MS) {
-    return;
-  }
+    // Scan cooldown
+    if (millis() - lastScanTime < SCAN_COOLDOWN_MS) return;
 
-  // ── Fingerprint scanning
-  int result = scanFingerprint();
+    // ── Fingerprint scanning ────────────────────────────────────────────────
+    int result = scanFingerprint();
 
-  if (result == -1) {
-    return; // No finger present
-  }
+    if (result == -1) return;  // No finger
 
-  lastScanTime = millis();
+    lastScanTime = millis();
 
-  if (result == -2) {
-    lcdShowTemp("Scan Error", "Try Again");
-    Serial.println("[Scan] Sensor error during scan");
-    return;
-  }
+    if (result == -2) {
+        lcdShowTemp("Scan Error", "Try Again");
+        return;
+    }
 
-  if (result == -3) {
-    lcdShowTemp("Not Recognized", "Try Again");
-    Serial.println("[Scan] Fingerprint not in database");
-    return;
-  }
+    if (result == -3) {
+        lcdShowTemp("Not Recognized", "Try Again");
+        return;
+    }
 
-  // ── Fingerprint matched — find guard for LCD name display
-  int guardIdx = findGuardByFingerprint((uint8_t)result);
+    // ── Fingerprint matched ─────────────────────────────────────────────────
+    int guardIdx = findGuardByFingerprint((uint8_t)result);
 
-  if (guardIdx < 0) {
-    char line2[17];
-    snprintf(line2, sizeof(line2), "FP ID:%d Unknown", result);
-    lcdShowTemp("Unknown ID", line2);
-    Serial.printf("[Scan] FP ID %d not mapped to any guard\n", result);
-    return;
-  }
+    if (guardIdx < 0) {
+        // ID exists on sensor but not in our local config
+        char line2[17];
+        snprintf(line2, sizeof(line2), "FP ID:%d", result);
+        lcdShowTemp("Unknown ID", line2);
+        Serial.printf("[Scan] FP ID %d not in local config\n", result);
 
-  // ── Send to server API — server handles check-in/out/replacement
-  Serial.printf("[Scan] Identified: %s (FP ID: %d)\n", GUARDS[guardIdx].name,
-                result);
-  lcdPrint(GUARDS[guardIdx].name, "Processing...");
-  sendScanToServer(result, guardIdx);
+        // Still send to server — it might know this guard
+        // Build a temporary guardIdx for display
+        HTTPClient http;
+        String url = String(SERVER_URL) + API_SCAN_PATH;
+        http.begin(url);
+        http.addHeader("Content-Type", "application/json");
+        http.setTimeout(HTTP_TIMEOUT_MS);
+        String body = "{\"fingerprintId\":" + String(result) + "}";
+        int code = http.POST(body);
+        if (code == 200) {
+            String resp = http.getString();
+            JsonDocument doc;
+            if (!deserializeJson(doc, resp)) {
+                const char* name = doc["guard"]["name"] | "Guard";
+                const char* action = doc["action"] | "?";
+                char l2[17];
+                snprintf(l2, sizeof(l2), "%s OK", action);
+                lcdShowTemp(name, l2);
+            }
+        }
+        http.end();
+        return;
+    }
+
+    // ── Send to server ──────────────────────────────────────────────────────
+    Serial.printf("[Scan] %s (FP: %d) → sending to server\n",
+                  GUARDS[guardIdx].name, result);
+    sendScanToServer((uint8_t)result, guardIdx);
 }

@@ -1,30 +1,25 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-    fetchLatestFeedValue,
-    isAdafruitConfigured,
-} from "@/lib/adafruit";
 
 /**
  * GET /api/attendance
- * 
- * Returns:
- * - activeGuard: currently on-duty guard (has open check-in without check-out)
+ *
+ * Returns attendance data for the dashboard:
+ * - securityStaff: current duty status per guard
  * - todayLog: today's attendance records
+ * - fullLog: recent attendance history
  * - guardProfiles: all registered guards
- * - device: ESP32 heartbeat info from Adafruit IO
+ * - device: ESP32 status (fetched from heartbeat endpoint)
  * - summary: present/absent counts
  */
 export async function GET() {
-    const configured = isAdafruitConfigured();
-
     // Get all active guards
     const guards = await prisma.securityGuard.findMany({
         where: { isActive: true },
         orderBy: { fingerprintId: "asc" },
     });
 
-    const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+    const today = new Date().toISOString().split("T")[0];
 
     // Get today's attendance records
     const todayRecords = await prisma.attendanceRecord.findMany({
@@ -33,7 +28,14 @@ export async function GET() {
         orderBy: { checkIn: "desc" },
     });
 
-    // Get the currently active guard (open check-in, no check-out)
+    // Get recent full log (last 100 records)
+    const recentRecords = await prisma.attendanceRecord.findMany({
+        include: { guard: true },
+        orderBy: { checkIn: "desc" },
+        take: 100,
+    });
+
+    // Find the currently active guard (checked in, not checked out)
     const activeRecord = await prisma.attendanceRecord.findFirst({
         where: { checkOut: null },
         include: { guard: true },
@@ -56,7 +58,7 @@ export async function GET() {
         autoClosedBy: record.autoClosedBy,
     }));
 
-    // Add absent guards (guards who haven't scanned today)
+    // Add absent guards
     const scannedGuardIds = new Set(todayRecords.map((r) => r.guardId));
     for (const guard of guards) {
         if (!scannedGuardIds.has(guard.id)) {
@@ -72,6 +74,22 @@ export async function GET() {
             });
         }
     }
+
+    // Build full log
+    const fullLog = recentRecords.map((record) => ({
+        id: record.guard.fingerprintId,
+        name: record.guard.name,
+        role: record.guard.role,
+        date: record.date,
+        checkIn: record.checkIn
+            ? record.checkIn.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+            : null,
+        checkOut: record.checkOut
+            ? record.checkOut.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+            : null,
+        hoursWorked: record.hoursWorked,
+        status: record.status as "present" | "late" | "absent",
+    }));
 
     // Build security staff status
     const securityStaff = guards.map((guard) => {
@@ -92,45 +110,34 @@ export async function GET() {
         };
     });
 
-    // Active guard info
-    const activeGuard = activeRecord
-        ? {
-            name: activeRecord.guard.name,
-            role: activeRecord.guard.role,
-            shift: activeRecord.guard.shift,
-            checkIn: activeRecord.checkIn.toISOString(),
-            fingerprintId: activeRecord.guard.fingerprintId,
-        }
-        : null;
+    // Fetch device status from heartbeat endpoint (internal fetch)
+    let device = { online: false, lastPing: null, firmware: null, rssi: null, uptime: null };
+    try {
+        // Use internal import instead of HTTP fetch to avoid issues
+        const heartbeatModule = await import("./heartbeat/route");
+        const heartbeatResponse = await heartbeatModule.GET();
+        device = await heartbeatResponse.json();
+    } catch {
+        // Heartbeat endpoint not available — device status unknown
+    }
 
-    // Device status from Adafruit IO heartbeat
-    const heartbeatData = configured
-        ? await fetchLatestFeedValue("device-heartbeat")
-        : null;
-
-    const deviceOnline =
-        heartbeatData !== null &&
-        heartbeatData._createdAt &&
-        Date.now() - new Date(heartbeatData._createdAt as string).getTime() <
-        10 * 60 * 1000;
-
-    const device = {
-        online: deviceOnline,
-        lastPing: heartbeatData?._createdAt || null,
-        firmware: (heartbeatData?.fw as string) || null,
-        rssi: (heartbeatData?.rssi as number) || null,
-        uptime: (heartbeatData?.uptime as number) || null,
-    };
-
-    // Summary
     const presentCount = securityStaff.filter((s) => s.isWorking).length;
     const absentCount = securityStaff.filter((s) => !s.isWorking).length;
 
     return NextResponse.json({
-        configured,
-        activeGuard,
+        configured: true,
+        activeGuard: activeRecord
+            ? {
+                name: activeRecord.guard.name,
+                role: activeRecord.guard.role,
+                shift: activeRecord.guard.shift,
+                checkIn: activeRecord.checkIn.toISOString(),
+                fingerprintId: activeRecord.guard.fingerprintId,
+            }
+            : null,
         securityStaff,
         todayLog,
+        fullLog,
         guardProfiles: guards.map((g) => ({
             id: g.fingerprintId,
             name: g.name,

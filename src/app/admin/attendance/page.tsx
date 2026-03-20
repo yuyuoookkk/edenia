@@ -235,10 +235,10 @@ export default function AdminAttendancePage() {
                 </div>
             )}
 
-            {/* Not configured banner */}
+            {/* Not connected banner */}
             {!configured && (
                 <div className="px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
-                    <strong>⚠ Adafruit IO not configured.</strong> Set <code className="text-xs bg-slate-700 px-1 py-0.5 rounded">AIO_USERNAME</code> and <code className="text-xs bg-slate-700 px-1 py-0.5 rounded">AIO_KEY</code> in your .env file for device heartbeat monitoring.
+                    <strong>⚠ No attendance data yet.</strong> Data will appear once the ESP32 device is connected and guards begin scanning their fingerprints.
                 </div>
             )}
 
