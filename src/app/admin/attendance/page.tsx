@@ -140,6 +140,18 @@ export default function AdminAttendancePage() {
     const [report, setReport] = useState<ReportData | null>(null);
     const [reportLoading, setReportLoading] = useState(false);
 
+    // Enrollment state
+    const [showEnrollForm, setShowEnrollForm] = useState(false);
+    const [enrollName, setEnrollName] = useState("");
+    const [enrollRole, setEnrollRole] = useState("");
+    const [enrollShift, setEnrollShift] = useState("Day");
+    const [enrollShiftStart, setEnrollShiftStart] = useState("06:00");
+    const [enrollFpId, setEnrollFpId] = useState("");
+    const [enrolling, setEnrolling] = useState(false);
+    const [enrollStatus, setEnrollStatus] = useState<{
+        status: string; message: string | null; guardName: string | null;
+    } | null>(null);
+
     async function fetchData(isRefresh = false) {
         if (isRefresh) setRefreshing(true);
         try {
@@ -172,6 +184,65 @@ export default function AdminAttendancePage() {
         const interval = setInterval(() => fetchData(), 30000);
         return () => clearInterval(interval);
     }, []);
+
+    // Poll enrollment status when enrolling
+    useEffect(() => {
+        if (!enrolling) return;
+        const poll = setInterval(async () => {
+            try {
+                const res = await fetch("/api/attendance/enroll");
+                const json = await res.json();
+                setEnrollStatus(json);
+                if (json.status === "success" || json.status === "failed") {
+                    setEnrolling(false);
+                    if (json.status === "success") {
+                        fetchData(true); // Refresh guard list
+                    }
+                }
+            } catch { /* ignore */ }
+        }, 2000);
+        return () => clearInterval(poll);
+    }, [enrolling]);
+
+    async function startEnrollment() {
+        const fpId = parseInt(enrollFpId);
+        if (!enrollName || !enrollRole || !fpId || fpId < 1 || fpId > 127) return;
+
+        setEnrolling(true);
+        setEnrollStatus({ status: "pending", message: "Sending request...", guardName: enrollName });
+
+        try {
+            const res = await fetch("/api/attendance/enroll", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fingerprintId: fpId,
+                    name: enrollName,
+                    role: enrollRole,
+                    shift: enrollShift,
+                    shiftStart: enrollShiftStart,
+                }),
+            });
+            const json = await res.json();
+            if (!res.ok) {
+                setEnrolling(false);
+                setEnrollStatus({ status: "failed", message: json.error, guardName: enrollName });
+                return;
+            }
+            setEnrollStatus({ status: "pending", message: json.message, guardName: enrollName });
+        } catch {
+            setEnrolling(false);
+            setEnrollStatus({ status: "failed", message: "Network error", guardName: enrollName });
+        }
+    }
+
+    async function cancelEnrollment() {
+        try {
+            await fetch("/api/attendance/enroll", { method: "DELETE" });
+        } catch { /* ignore */ }
+        setEnrolling(false);
+        setEnrollStatus(null);
+    }
 
     if (loading) {
         return (
@@ -487,15 +558,137 @@ export default function AdminAttendancePage() {
                             <h2 className="text-lg font-semibold">Staff Management</h2>
                             <p className="text-sm text-slate-400">Manage staff members and fingerprint enrollment</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline" className="border-slate-600/50 text-slate-300 hover:bg-slate-700">
-                                <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Add Staff
-                            </Button>
-                            <Button size="sm" className="bg-primary hover:bg-primary/90">
-                                <Fingerprint className="w-3.5 h-3.5 mr-1.5" /> Enroll Fingerprint
-                            </Button>
-                        </div>
+                        <Button
+                            size="sm"
+                            className="bg-primary hover:bg-primary/90"
+                            onClick={() => setShowEnrollForm(!showEnrollForm)}
+                            disabled={enrolling}
+                        >
+                            <Fingerprint className="w-3.5 h-3.5 mr-1.5" />
+                            {showEnrollForm ? "Cancel" : "Enroll New Guard"}
+                        </Button>
                     </div>
+
+                    {/* Enrollment Form */}
+                    {showEnrollForm && (
+                        <Card className="bg-slate-800/50 border-primary/30 border-2">
+                            <CardHeader>
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Fingerprint className="w-4 h-4 text-primary" />
+                                    Enroll New Guard
+                                </CardTitle>
+                                <CardDescription className="text-slate-500">
+                                    Fill in the guard details, then click Start. The device will guide the guard through fingerprint capture.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs text-slate-400">Guard Name</label>
+                                        <Input
+                                            placeholder="e.g. Made Surya"
+                                            value={enrollName}
+                                            onChange={(e) => setEnrollName(e.target.value)}
+                                            className="bg-slate-900/50 border-slate-600/50"
+                                            disabled={enrolling}
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs text-slate-400">Role</label>
+                                        <Input
+                                            placeholder="e.g. Security 4"
+                                            value={enrollRole}
+                                            onChange={(e) => setEnrollRole(e.target.value)}
+                                            className="bg-slate-900/50 border-slate-600/50"
+                                            disabled={enrolling}
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs text-slate-400">Fingerprint Slot (1-127)</label>
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            max={127}
+                                            placeholder="e.g. 4"
+                                            value={enrollFpId}
+                                            onChange={(e) => setEnrollFpId(e.target.value)}
+                                            className="bg-slate-900/50 border-slate-600/50"
+                                            disabled={enrolling}
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs text-slate-400">Shift</label>
+                                        <select
+                                            value={enrollShift}
+                                            onChange={(e) => {
+                                                setEnrollShift(e.target.value);
+                                                setEnrollShiftStart(e.target.value === "Day" ? "06:00" : "18:00");
+                                            }}
+                                            className="w-full h-9 px-3 rounded-md bg-slate-900/50 border border-slate-600/50 text-sm text-slate-200"
+                                            disabled={enrolling}
+                                        >
+                                            <option value="Day">Day (06:00–18:00)</option>
+                                            <option value="Night">Night (18:00–06:00)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Enrollment Status */}
+                                {enrollStatus && (
+                                    <div className={`flex items-center gap-3 p-3 rounded-lg border ${
+                                        enrollStatus.status === "success" ? "bg-emerald-500/10 border-emerald-500/20" :
+                                        enrollStatus.status === "failed" ? "bg-rose-500/10 border-rose-500/20" :
+                                        "bg-amber-500/10 border-amber-500/20"
+                                    }`}>
+                                        {enrollStatus.status === "pending" && (
+                                            <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                                        )}
+                                        {enrollStatus.status === "in_progress" && (
+                                            <Fingerprint className="w-4 h-4 text-amber-400 animate-pulse" />
+                                        )}
+                                        {enrollStatus.status === "success" && (
+                                            <CheckCircle className="w-4 h-4 text-emerald-400" />
+                                        )}
+                                        {enrollStatus.status === "failed" && (
+                                            <XCircle className="w-4 h-4 text-rose-400" />
+                                        )}
+                                        <span className={`text-sm font-medium ${
+                                            enrollStatus.status === "success" ? "text-emerald-400" :
+                                            enrollStatus.status === "failed" ? "text-rose-400" :
+                                            "text-amber-400"
+                                        }`}>
+                                            {enrollStatus.message || "Processing..."}
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        size="sm"
+                                        className="bg-emerald-600 hover:bg-emerald-700"
+                                        disabled={enrolling || !enrollName || !enrollRole || !enrollFpId}
+                                        onClick={startEnrollment}
+                                    >
+                                        {enrolling ? (
+                                            <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Enrolling...</>
+                                        ) : (
+                                            <><Fingerprint className="w-3.5 h-3.5 mr-1.5" /> Start Enrollment</>
+                                        )}
+                                    </Button>
+                                    {enrolling && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10"
+                                            onClick={cancelEnrollment}
+                                        >
+                                            <XCircle className="w-3.5 h-3.5 mr-1.5" /> Cancel
+                                        </Button>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                         {guardProfiles.map((staff) => (

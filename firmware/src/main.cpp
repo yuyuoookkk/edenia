@@ -52,8 +52,12 @@ NTPClient timeClient(ntpUDP, NTP_SERVER, UTC_OFFSET_SECONDS, 60000);
 unsigned long lastHeartbeat    = 0;
 unsigned long lastLcdMessage   = 0;
 unsigned long lastScanTime     = 0;
+unsigned long lastEnrollCheck  = 0;
 unsigned long bootTime         = 0;
 bool          showingMessage   = false;
+bool          enrollingMode    = false;
+
+#define ENROLL_CHECK_INTERVAL_MS 5000  // Poll for enrollment requests every 5s
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LCD Helper Functions
@@ -287,6 +291,167 @@ void sendHeartbeat() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Fingerprint Enrollment (remote-triggered)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Forward declaration
+void reportEnrollResult(int fpId, bool success, const char* message);
+
+/**
+ * Check if the server has a pending enrollment request.
+ * If so, run the enrollment process.
+ */
+void checkForEnrollment() {
+    if (WiFi.status() != WL_CONNECTED) return;
+
+    HTTPClient http;
+    String url = String(SERVER_URL) + "/api/attendance/enroll";
+    http.begin(url);
+    http.setTimeout(5000);
+
+    int httpCode = http.GET();
+    if (httpCode != 200) {
+        http.end();
+        return;
+    }
+
+    String response = http.getString();
+    http.end();
+
+    JsonDocument doc;
+    if (deserializeJson(doc, response)) return;
+
+    const char* status = doc["status"] | "idle";
+    if (strcmp(status, "pending") != 0) return;
+
+    // We have a pending enrollment!
+    int fpId = doc["fingerprintId"] | 0;
+    const char* guardName = doc["guardName"] | "New Guard";
+
+    if (fpId < 1 || fpId > 127) {
+        Serial.printf("[Enroll] Invalid FP ID: %d\n", fpId);
+        return;
+    }
+
+    Serial.printf("[Enroll] Starting enrollment: %s → slot %d\n", guardName, fpId);
+    enrollingMode = true;
+
+    // ── Step 1: First finger capture ─────────────────────────
+    char line1[17];
+    snprintf(line1, sizeof(line1), "Enroll: %s", guardName);
+    lcdPrint(line1, "Place finger...");
+    Serial.println("[Enroll] Waiting for first finger placement...");
+
+    // Wait for finger (timeout 30 seconds)
+    unsigned long enrollStart = millis();
+    uint8_t p = FINGERPRINT_NOFINGER;
+    while (p != FINGERPRINT_OK) {
+        p = finger.getImage();
+        if (millis() - enrollStart > 30000) {
+            lcdShowTemp("Enroll Timeout", "Try again");
+            reportEnrollResult(fpId, false, "Timeout waiting for finger");
+            enrollingMode = false;
+            return;
+        }
+        delay(100);
+    }
+
+    // Convert first image
+    p = finger.image2Tz(1);
+    if (p != FINGERPRINT_OK) {
+        lcdShowTemp("Capture Error", "Try again");
+        reportEnrollResult(fpId, false, "First capture failed");
+        enrollingMode = false;
+        return;
+    }
+
+    Serial.println("[Enroll] First capture OK");
+    lcdPrint("Good!", "Remove finger...");
+    delay(2000);
+
+    // Wait for finger removal
+    while (finger.getImage() != FINGERPRINT_NOFINGER) {
+        delay(100);
+    }
+
+    // ── Step 2: Second finger capture ────────────────────────
+    lcdPrint(line1, "Place again...");
+    Serial.println("[Enroll] Waiting for second finger placement...");
+
+    enrollStart = millis();
+    p = FINGERPRINT_NOFINGER;
+    while (p != FINGERPRINT_OK) {
+        p = finger.getImage();
+        if (millis() - enrollStart > 30000) {
+            lcdShowTemp("Enroll Timeout", "Try again");
+            reportEnrollResult(fpId, false, "Timeout on second capture");
+            enrollingMode = false;
+            return;
+        }
+        delay(100);
+    }
+
+    // Convert second image
+    p = finger.image2Tz(2);
+    if (p != FINGERPRINT_OK) {
+        lcdShowTemp("Capture Error", "Try again");
+        reportEnrollResult(fpId, false, "Second capture failed");
+        enrollingMode = false;
+        return;
+    }
+
+    Serial.println("[Enroll] Second capture OK, creating model...");
+
+    // ── Create model from the two captures ───────────────────
+    p = finger.createModel();
+    if (p != FINGERPRINT_OK) {
+        lcdShowTemp("Prints Differ!", "Try again");
+        reportEnrollResult(fpId, false, "Fingerprints did not match");
+        enrollingMode = false;
+        return;
+    }
+
+    // ── Store the model in the sensor ────────────────────────
+    p = finger.storeModel(fpId);
+    if (p != FINGERPRINT_OK) {
+        lcdShowTemp("Store Failed!", "Try again");
+        reportEnrollResult(fpId, false, "Failed to store template");
+        enrollingMode = false;
+        return;
+    }
+
+    // ── Success! ─────────────────────────────────────────────
+    Serial.printf("[Enroll] SUCCESS! %s stored at slot %d\n", guardName, fpId);
+    char successLine[17];
+    snprintf(successLine, sizeof(successLine), "Slot %d saved!", fpId);
+    lcdShowTemp(guardName, successLine);
+    delay(2000);
+    lcdShowTemp("Enrolled OK!", guardName);
+
+    reportEnrollResult(fpId, true, "Enrollment successful");
+    enrollingMode = false;
+}
+
+/**
+ * Report enrollment result back to the server via PATCH.
+ */
+void reportEnrollResult(int fpId, bool success, const char* message) {
+    HTTPClient http;
+    String url = String(SERVER_URL) + "/api/attendance/enroll";
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(5000);
+
+    String body = "{\"fingerprintId\":" + String(fpId) +
+                  ",\"success\":" + (success ? "true" : "false") +
+                  ",\"message\":\"" + String(message) + "\"}";
+
+    int code = http.sendRequest("PATCH", body);
+    Serial.printf("[Enroll] Report result: %d (success=%d)\n", code, success);
+    http.end();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Fingerprint Scanning
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -410,6 +575,12 @@ void loop() {
     if (millis() - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
         sendHeartbeat();
         lastHeartbeat = millis();
+    }
+
+    // Check for pending enrollment requests
+    if (!enrollingMode && millis() - lastEnrollCheck >= ENROLL_CHECK_INTERVAL_MS) {
+        checkForEnrollment();
+        lastEnrollCheck = millis();
     }
 
     // Clear temporary LCD messages → return to idle

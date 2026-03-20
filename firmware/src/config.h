@@ -64,13 +64,17 @@ struct Guard {
     const char* role;         // Role label
 };
 
-#define NUM_GUARDS 3
+#define NUM_GUARDS 0
 
-const Guard GUARDS[NUM_GUARDS] = {
-    // { fingerprintID,  "Name",           "Role"        }
-    {    1,              "Putu Darma",     "Security 1"  },
-    {    2,              "Wayan Sudira",   "Security 2"  },
-    {    3,              "Kadek Arta",     "Security 3"  },
+const Guard GUARDS[1] = {
+    // Guards are now enrolled from the admin panel.
+    // This array is optional — if a fingerprint ID is found here,
+    // the LCD will show the name immediately while waiting for
+    // the server response. Otherwise it shows "Sending..."
+    //
+    // Example:
+    // { 1, "Putu Darma", "Security 1" },
+    { 0, "", "" },  // Placeholder (unused)
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
