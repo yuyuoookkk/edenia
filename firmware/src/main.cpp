@@ -22,6 +22,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -33,6 +34,10 @@
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Global Objects
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// HTTPS client (skip certificate verification for simplicity)
+WiFiClientSecure secureClient;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // LCD Display
@@ -165,7 +170,7 @@ void sendScanToServer(uint8_t fingerprintId, int guardIdx) {
     Serial.printf("[HTTP] POST %s (fingerprintId: %d)\n", url.c_str(), fingerprintId);
     lcdPrint(GUARDS[guardIdx].name, "Sending...");
 
-    http.begin(url);
+    http.begin(secureClient, url);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(HTTP_TIMEOUT_MS);
 
@@ -267,7 +272,7 @@ void sendHeartbeat() {
     HTTPClient http;
     String url = String(SERVER_URL) + API_HEARTBEAT;
 
-    http.begin(url);
+    http.begin(secureClient, url);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(5000);
 
@@ -306,7 +311,7 @@ void checkForEnrollment() {
 
     HTTPClient http;
     String url = String(SERVER_URL) + "/api/attendance/enroll";
-    http.begin(url);
+    http.begin(secureClient, url);
     http.setTimeout(5000);
 
     int httpCode = http.GET();
@@ -438,7 +443,7 @@ void checkForEnrollment() {
 void reportEnrollResult(int fpId, bool success, const char* message) {
     HTTPClient http;
     String url = String(SERVER_URL) + "/api/attendance/enroll";
-    http.begin(url);
+    http.begin(secureClient, url);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(5000);
 
@@ -529,6 +534,9 @@ void setup() {
 
     // Connect WiFi
     connectWiFi();
+
+    // Configure HTTPS (skip certificate verification)
+    secureClient.setInsecure();
 
     // Start NTP
     Serial.println("[Init] Syncing time...");
@@ -622,7 +630,7 @@ void loop() {
         // Build a temporary guardIdx for display
         HTTPClient http;
         String url = String(SERVER_URL) + API_SCAN_PATH;
-        http.begin(url);
+        http.begin(secureClient, url);
         http.addHeader("Content-Type", "application/json");
         http.setTimeout(HTTP_TIMEOUT_MS);
         String body = "{\"fingerprintId\":" + String(result) + "}";

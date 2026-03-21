@@ -62,10 +62,31 @@ export async function POST(request: Request) {
         });
 
         if (existing) {
-            return NextResponse.json(
-                { error: `Fingerprint slot ${fingerprintId} is already assigned to ${existing.name}` },
-                { status: 409 }
-            );
+            // If it's an inactive record from a previous failed enrollment, clean it up
+            if (!existing.isActive) {
+                await prisma.securityGuard.delete({
+                    where: { fingerprintId },
+                });
+                console.log(`[Enroll] Cleaned up stale inactive record for FP slot ${fingerprintId}`);
+            } else {
+                return NextResponse.json(
+                    { error: `Fingerprint slot ${fingerprintId} is already assigned to ${existing.name}` },
+                    { status: 409 }
+                );
+            }
+        }
+
+        // Reset stale enrollment states (failed/success from previous attempts)
+        if (enrollmentRequest.status === "failed" || enrollmentRequest.status === "success") {
+            enrollmentRequest = {
+                status: "idle",
+                fingerprintId: null,
+                guardName: null,
+                guardRole: null,
+                message: null,
+                requestedAt: null,
+                completedAt: null,
+            };
         }
 
         // Check if there's already a pending enrollment

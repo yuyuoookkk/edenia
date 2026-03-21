@@ -17,15 +17,15 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // WiFi Configuration
 // ═══════════════════════════════════════════════════════════════════════════════
-#define WIFI_SSID       "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD   "YOUR_WIFI_PASSWORD"
+#define WIFI_SSID       "Xiaomi14t"
+#define WIFI_PASSWORD   "jawajawa"
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Server Configuration
 // The ESP32 sends HTTP POST requests directly to your Next.js API.
 // Set this to your server's IP on the local network, or your domain.
 // ═══════════════════════════════════════════════════════════════════════════════
-#define SERVER_URL      "http://192.168.1.100:3000"  // ← Your server IP/domain
+#define SERVER_URL      "https://edeniaprivatevillas.com"  // Production server
 #define API_SCAN_PATH   "/api/attendance/scan"        // Fingerprint scan endpoint
 #define API_HEARTBEAT   "/api/attendance/heartbeat"   // Device heartbeat endpoint
 
