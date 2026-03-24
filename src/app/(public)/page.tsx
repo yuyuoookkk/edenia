@@ -18,6 +18,7 @@ export default function Home() {
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
   const [paidVillasCount, setPaidVillasCount] = useState(0);
+  const [totalVillas, setTotalVillas] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeGuard, setActiveGuard] = useState<{ name: string; role: string; checkIn: string } | null>(null);
 
@@ -42,6 +43,7 @@ export default function Home() {
       setIncome(0);
       setExpenses(0);
       setPaidVillasCount(0);
+      setTotalVillas(0);
       setLoading(false);
       return;
     }
@@ -56,21 +58,18 @@ export default function Home() {
         const txns = Array.isArray(data.transactions) ? data.transactions : [];
         let totalIncome = 0;
         let totalExpenses = 0;
-        const uniqueVillasPaid = new Set<string>();
 
         for (const txn of txns) {
           if (txn.type === 'INCOME') {
             totalIncome += txn.amount;
-            if (txn.ownerId) {
-              uniqueVillasPaid.add(txn.ownerId);
-            }
           }
           else totalExpenses += txn.amount;
         }
 
         setIncome(totalIncome);
         setExpenses(totalExpenses);
-        setPaidVillasCount(uniqueVillasPaid.size);
+        setPaidVillasCount(data.paidVillasCount ?? 0);
+        setTotalVillas(data.totalVillas ?? 0);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -87,8 +86,8 @@ export default function Home() {
   const startYear = 2026;
 
   for (let year = currentYear; year >= startYear; year--) {
-    // If it's the current year, start from the current month, else start from December (11)
-    const monthStart = year === currentYear ? currentMonth : 11;
+    // Show all 12 months for every year
+    const monthStart = 11;
     for (let month = monthStart; month >= 0; month--) {
       const d = new Date(year, month, 1);
       const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -121,7 +120,7 @@ export default function Home() {
                 {loading ? "..." : `Rp ${income.toLocaleString('id-ID')}`}
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                {currentPeriod.length === 4 ? "Based on yearly transactions" : "Based on monthly transactions"} &bull; {loading ? "..." : <span className="font-semibold text-emerald-700">{paidVillasCount}</span>} {paidVillasCount === 1 ? 'villa' : 'villas'} paid
+                {currentPeriod.length === 4 ? "Based on yearly transactions" : "Based on monthly transactions"} &bull; {loading ? "..." : <span className="font-semibold text-emerald-700">{paidVillasCount}/{totalVillas}</span>} villas paid
               </p>
             </CardContent>
           </Link>

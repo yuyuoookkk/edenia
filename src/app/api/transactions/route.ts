@@ -52,7 +52,55 @@ export async function GET(request: Request) {
             include: { owner: true },
             orderBy: { date: "asc" }, // Sorting ascending to calculate running balance
         });
-        return NextResponse.json({ transactions, carriedForward });
+
+        // Compute paidVillasCount by validating against each owner's monthlyDues
+        const owners = await prisma.villaOwner.findMany({
+            select: { id: true, monthlyDues: true },
+        });
+        const ownersWithDues = owners.filter(o => o.monthlyDues > 0);
+        const totalVillas = ownersWithDues.length;
+        let paidVillasCount = 0;
+
+        if (month) {
+            // Monthly: count owners whose INCOME in this month >= their monthlyDues
+            const incomeByOwner = new Map<string, number>();
+            for (const txn of transactions) {
+                if (txn.type === 'INCOME' && txn.ownerId) {
+                    incomeByOwner.set(txn.ownerId, (incomeByOwner.get(txn.ownerId) || 0) + txn.amount);
+                }
+            }
+            for (const owner of ownersWithDues) {
+                const paid = incomeByOwner.get(owner.id) || 0;
+                if (paid >= owner.monthlyDues) {
+                    paidVillasCount++;
+                }
+            }
+        } else if (year) {
+            // Yearly: count total paid villa-months across all 12 months
+            // Group income transactions by ownerId and month
+            const incomeByOwnerMonth = new Map<string, number>();
+            for (const txn of transactions) {
+                if (txn.type === 'INCOME' && txn.ownerId) {
+                    const txnDate = new Date(txn.date);
+                    const monthKey = `${txn.ownerId}-${txnDate.getMonth() + 1}`;
+                    incomeByOwnerMonth.set(monthKey, (incomeByOwnerMonth.get(monthKey) || 0) + txn.amount);
+                }
+            }
+            for (const owner of ownersWithDues) {
+                for (let m = 1; m <= 12; m++) {
+                    const key = `${owner.id}-${m}`;
+                    const paid = incomeByOwnerMonth.get(key) || 0;
+                    if (paid >= owner.monthlyDues) {
+                        paidVillasCount++;
+                    }
+                }
+            }
+        }
+
+        // For yearly view, totalVillas should reflect all possible villa-month payments
+        const totalVillasResult = (year) ? totalVillas * 12 : totalVillas;
+
+        return NextResponse.json({ transactions, carriedForward, paidVillasCount, totalVillas: totalVillasResult });
     } catch (error) {
         return NextResponse.json({ error: "Failed to fetch transactions" }, { status: 500 });
     }
