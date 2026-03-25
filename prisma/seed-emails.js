@@ -22,7 +22,7 @@ const villaEmails = {
     "19": "Arlene.tuladhar@gmail.com",
     "20": "mhdreza.reza730@gmail.com",
     "21": "lenkasim@hotmail.com",
-    "22": "priandika@yahoo.com",
+    "22": "tom.thyrion@gmail.com",
     "23": "canabis78@yahoo.com",
     "24": "bert4all24@gmail.com",
     "25": "chrispotts@fastmail.com",

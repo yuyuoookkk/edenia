@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         }
 
         const now = new Date();
-        const today = now.toISOString().split("T")[0]; // "YYYY-MM-DD"
+        const today = now.toLocaleDateString("en-CA", { timeZone: "Asia/Makassar" }); // "YYYY-MM-DD" in WITA
 
         // Check if THIS guard has an open record (checked in, not checked out)
         const ownOpenRecord = await prisma.attendanceRecord.findFirst({
@@ -105,8 +105,9 @@ export async function POST(request: Request) {
         // ── Check in the new guard ──
         // Determine if late: compare current time with shift start
         const [shiftHour, shiftMin] = guard.shiftStart.split(":").map(Number);
-        const currentHour = now.getHours();
-        const currentMin = now.getMinutes();
+        // Use WITA timezone (UTC+8) for late detection
+        const witaTime = now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", timeZone: "Asia/Makassar" });
+        const [currentHour, currentMin] = witaTime.split(":").map(Number);
         const isLate =
             currentHour > shiftHour ||
             (currentHour === shiftHour && currentMin > shiftMin);

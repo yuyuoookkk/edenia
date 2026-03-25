@@ -19,7 +19,10 @@ export async function GET() {
         orderBy: { fingerprintId: "asc" },
     });
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Makassar" }); // YYYY-MM-DD in WITA
+
+    // Time formatting helper — always use Bali/WITA timezone (UTC+8)
+    const formatTime = (d: Date) => d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Makassar" });
 
     // Get today's attendance records
     const todayRecords = await prisma.attendanceRecord.findMany({
@@ -47,12 +50,8 @@ export async function GET() {
         id: record.guard.fingerprintId,
         name: record.guard.name,
         role: record.guard.role,
-        checkIn: record.checkIn
-            ? record.checkIn.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-            : null,
-        checkOut: record.checkOut
-            ? record.checkOut.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-            : null,
+        checkIn: record.checkIn ? formatTime(record.checkIn) : null,
+        checkOut: record.checkOut ? formatTime(record.checkOut) : null,
         hoursWorked: record.hoursWorked,
         status: record.status as "present" | "late" | "absent",
         autoClosedBy: record.autoClosedBy,
@@ -81,12 +80,8 @@ export async function GET() {
         name: record.guard.name,
         role: record.guard.role,
         date: record.date,
-        checkIn: record.checkIn
-            ? record.checkIn.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-            : null,
-        checkOut: record.checkOut
-            ? record.checkOut.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-            : null,
+        checkIn: record.checkIn ? formatTime(record.checkIn) : null,
+        checkOut: record.checkOut ? formatTime(record.checkOut) : null,
         hoursWorked: record.hoursWorked,
         status: record.status as "present" | "late" | "absent",
     }));
@@ -101,12 +96,8 @@ export async function GET() {
             role: guard.role,
             shift: guard.shift === "Day" ? "Day (06:00–18:00)" : "Night (18:00–06:00)",
             isWorking: isOnDuty,
-            checkIn: todayRecord?.checkIn
-                ? todayRecord.checkIn.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-                : null,
-            checkOut: todayRecord?.checkOut
-                ? todayRecord.checkOut.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
-                : null,
+            checkIn: todayRecord?.checkIn ? formatTime(todayRecord.checkIn) : null,
+            checkOut: todayRecord?.checkOut ? formatTime(todayRecord.checkOut) : null,
         };
     });
 
