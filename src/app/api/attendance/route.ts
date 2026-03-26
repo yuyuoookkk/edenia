@@ -143,3 +143,43 @@ export async function GET() {
         },
     });
 }
+
+/**
+ * DELETE /api/attendance?fingerprintId=X
+ *
+ * Deletes a guard enrollment and all their attendance records.
+ */
+export async function DELETE(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const fpIdStr = searchParams.get("fingerprintId");
+    if (!fpIdStr) {
+        return NextResponse.json({ error: "Missing fingerprintId" }, { status: 400 });
+    }
+
+    const fingerprintId = parseInt(fpIdStr);
+
+    try {
+        const guard = await prisma.securityGuard.findUnique({
+            where: { fingerprintId },
+        });
+
+        if (!guard) {
+            return NextResponse.json({ error: "Guard not found" }, { status: 404 });
+        }
+
+        // Delete all attendance records for this guard first
+        await prisma.attendanceRecord.deleteMany({
+            where: { guardId: guard.id },
+        });
+
+        // Delete the guard
+        await prisma.securityGuard.delete({
+            where: { fingerprintId },
+        });
+
+        return NextResponse.json({ ok: true, message: `${guard.name} has been removed.` });
+    } catch (error: any) {
+        console.error("[Attendance] DELETE error:", error);
+        return NextResponse.json({ error: "Failed to delete guard" }, { status: 500 });
+    }
+}

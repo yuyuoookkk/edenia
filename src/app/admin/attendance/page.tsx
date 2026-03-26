@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import {
     Fingerprint, ShieldCheck, Users, UserPlus, Search, Download, Signal,
     Activity, TrendingUp, AlertTriangle, CheckCircle, XCircle, Loader2, RefreshCw,
-    CalendarDays, Wifi, WifiOff, ChevronLeft, ChevronRight
+    CalendarDays, Wifi, WifiOff, ChevronLeft, ChevronRight, Trash2
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────
@@ -242,6 +242,21 @@ export default function AdminAttendancePage() {
         } catch { /* ignore */ }
         setEnrolling(false);
         setEnrollStatus(null);
+    }
+
+    async function deleteGuard(fingerprintId: number, name: string) {
+        if (!confirm(`Are you sure you want to delete ${name}? This will also remove all their attendance records.`)) return;
+        try {
+            const res = await fetch(`/api/attendance?fingerprintId=${fingerprintId}`, { method: "DELETE" });
+            if (res.ok) {
+                fetchData(true);
+            } else {
+                const data = await res.json();
+                alert(data.error || "Failed to delete guard");
+            }
+        } catch {
+            alert("Network error");
+        }
     }
 
     if (loading) {
@@ -704,7 +719,13 @@ export default function AdminAttendancePage() {
                                                 <p className="text-xs text-slate-400">{staff.role}</p>
                                             </div>
                                         </div>
-                                        <CheckCircle className="w-4 h-4 text-emerald-400" />
+                                        <button
+                                            onClick={() => deleteGuard(staff.id, staff.name)}
+                                            className="p-1.5 rounded-md hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-colors"
+                                            title={`Delete ${staff.name}`}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
 
                                     <div className="space-y-2 text-xs">
