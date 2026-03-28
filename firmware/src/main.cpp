@@ -86,7 +86,7 @@ void lcdShowIdle() {
     char timeStr[6];
     snprintf(timeStr, sizeof(timeStr), "%02d:%02d", timeClient.getHours(), timeClient.getMinutes());
     char line2[17];
-    snprintf(line2, sizeof(line2), "%s Scan finger", timeStr);
+    snprintf(line2, sizeof(line2), " %s", timeStr);
     lcdPrint("Edenia Security", line2);
     showingMessage = false;
 }
@@ -531,6 +531,13 @@ void setup() {
     finger.getParameters();
     Serial.printf("[Init] Sensor capacity: %d, Security level: %d\n",
                   finger.capacity, finger.security_level);
+
+    // ── Clear all stored fingerprints (ONE-TIME RESET) ──────────
+    // Remove this block after flashing once!
+    Serial.println("[Init] ⚠ Clearing ALL fingerprints from sensor...");
+    finger.emptyDatabase();
+    Serial.println("[Init] ✓ Sensor cleared! All fingerprint slots are now empty.");
+    // ─────────────────────────────────────────────────────────────
 
     // Connect WiFi
     connectWiFi();

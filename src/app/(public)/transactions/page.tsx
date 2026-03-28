@@ -91,7 +91,7 @@ export default function TransactionsPage() {
     const monthsBilled = getBillingMonths(currentYear);
     const totalRequired = MONTHLY_DUES * monthsBilled;
 
-    const ownerBalances = owners.map(owner => {
+    const ownerBalances = owners.filter(owner => owner.unitNumber?.toLowerCase() !== 'wayan').map(owner => {
         const paidThisYear = transactions
             .filter(t => t.ownerId === owner.id && t.type === "INCOME")
             .reduce((sum, t) => sum + t.amount, 0);

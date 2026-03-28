@@ -21,9 +21,12 @@ export async function GET(request: Request) {
         const limit = parseInt(searchParams.get("limit") || "20");
         const skip = (page - 1) * limit;
 
-        // Where clause for search
+        // Where clause for search and owner filter
+        const ownerId = searchParams.get("ownerId") || "";
         const where: any = {};
-        if (search) {
+        if (ownerId) {
+            where.ownerId = ownerId;
+        } else if (search) {
             where.owner = {
                 OR: [
                     { name: { contains: search, mode: 'insensitive' } },
