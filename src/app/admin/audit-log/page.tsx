@@ -319,8 +319,8 @@ export default function AuditLogPage() {
                                             Unit {owner.unitNumber || "N/A"}
                                         </div>
                                         {/* Owner name */}
-                                        <p className="text-sm text-slate-300 truncate" title={owner.name}>
-                                            {owner.name}
+                                        <p className="text-sm text-slate-300 truncate" title={`Villa ${owner.unitNumber || "N/A"}`}>
+                                            Villa {owner.unitNumber || "N/A"}
                                         </p>
                                         {/* Visit count */}
                                         <div className="flex items-center gap-1.5 mt-2">
