@@ -100,6 +100,9 @@ function footerSection(type: string): string {
                                 This is an automated ${type} from Edenia Private Villas Management.<br>
                                 If you have any questions, please contact us at edeniaprivatevillas@gmail.com
                             </p>
+                            <p style="margin:12px 0 0;font-size:12px;text-align:center;">
+                                <a href="https://edeniaprivatevillas.com" style="color:#6b7280;text-decoration:none;">🌐 edeniaprivatevillas.com</a>
+                            </p>
                         </td>
                     </tr>`;
 }
