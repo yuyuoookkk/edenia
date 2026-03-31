@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, closeEmailPool } from "@/lib/email";
 import { calculateOwnerDebt, generateInvoiceHTML, generateReceiptHTML } from "@/lib/invoice-template";
 
 const MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
 ];
+
+// Helper to delay between emails
+function delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export async function GET(request: Request) {
     // Verify authorization — Vercel Cron sends this automatically
@@ -18,6 +23,8 @@ export async function GET(request: Request) {
     }
 
     try {
+        console.log("[CRON] Starting invoice/receipt email job...");
+
         // Optional: override month for testing (e.g. ?test_month=2026-02)
         const { searchParams } = new URL(request.url);
         const testEmail = searchParams.get("test_email");
@@ -37,6 +44,7 @@ export async function GET(request: Request) {
         }
 
         const invoiceMonth = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
+        console.log(`[CRON] Processing for: ${invoiceMonth}`);
 
         // Fetch owners with their INCOME transactions
         const owners = await prisma.villaOwner.findMany({
@@ -48,6 +56,8 @@ export async function GET(request: Request) {
             },
         });
 
+        console.log(`[CRON] Found ${owners.length} owners to process`);
+
         const results: {
             owner: string;
             villa: string;
@@ -58,9 +68,12 @@ export async function GET(request: Request) {
             error?: string;
         }[] = [];
 
-        for (const owner of owners) {
+        for (let i = 0; i < owners.length; i++) {
+            const owner = owners[i];
+
             // Skip owners without email
             if (!owner.email) {
+                console.log(`[CRON] [${i + 1}/${owners.length}] Skipping ${owner.name} - no email`);
                 results.push({
                     owner: owner.name,
                     villa: owner.unitNumber || "N/A",
@@ -135,7 +148,15 @@ export async function GET(request: Request) {
                     : `[Invoice] Edenia Private Villas - ${invoiceMonth} — ${unpaidMonths.length} Months Due`;
             }
 
+            console.log(`[CRON] [${i + 1}/${owners.length}] Sending ${emailType} to ${owner.name} (${owner.email})...`);
+
             const result = await sendEmail(owner.email, subject, html);
+
+            if (result.success) {
+                console.log(`[CRON] [${i + 1}/${owners.length}] ✓ Sent ${emailType} to ${owner.email}`);
+            } else {
+                console.error(`[CRON] [${i + 1}/${owners.length}] ✗ Failed ${emailType} to ${owner.email}: ${result.error}`);
+            }
 
             results.push({
                 owner: owner.name,
@@ -146,7 +167,15 @@ export async function GET(request: Request) {
                 status: result.success ? "sent" : "failed",
                 error: result.error,
             });
+
+            // Add a 3 second delay between emails to avoid Gmail rate limits
+            if (i < owners.length - 1 && owner.email) {
+                await delay(3000);
+            }
         }
+
+        // Close the email connection pool after all emails are sent
+        await closeEmailPool();
 
         const sent = results.filter((r) => r.status === "sent").length;
         const invoices = results.filter((r) => r.type === "invoice" && r.status === "sent").length;
@@ -154,13 +183,15 @@ export async function GET(request: Request) {
         const skipped = results.filter((r) => r.status === "skipped").length;
         const failed = results.filter((r) => r.status === "failed").length;
 
+        console.log(`[CRON] Complete! Sent: ${sent}, Invoices: ${invoices}, Receipts: ${receipts}, Skipped: ${skipped}, Failed: ${failed}`);
+
         return NextResponse.json({
             invoiceMonth,
             summary: { total: results.length, sent, invoices, receipts, skipped, failed },
             results,
         });
     } catch (error: any) {
-        console.error("Cron send-invoices error:", error);
+        console.error("[CRON] send-invoices error:", error);
         return NextResponse.json(
             { error: "Failed to send invoices", details: error.message },
             { status: 500 }
