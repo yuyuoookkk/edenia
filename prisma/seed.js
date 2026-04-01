@@ -38,42 +38,83 @@ async function main() {
         // Villa 2: FEB 1,300,000 | MAR 1,300,000
         { villa: 2, month: 1, amount: 1300000 },
         { villa: 2, month: 2, amount: 1300000 },
+        // Villa 3: FEB 1,300,000 | MAR 1,300,000
+        { villa: 3, month: 1, amount: 1300000 },
+        { villa: 3, month: 2, amount: 1300000 },
+        // Villa 4: (no payments)
+        // Villa 5: (no payments)
+        // Villa 6: (no payments)
+        // Villa 7: FEB 1,300,000 | MAR 800,000
+        { villa: 7, month: 1, amount: 1300000 },
+        { villa: 7, month: 2, amount: 800000 },
         // Villa 8: FEB 1,300,000 | MAR 1,300,000 | APR 1,300,000 | MAY 1,300,000
         { villa: 8, month: 1, amount: 1300000 },
         { villa: 8, month: 2, amount: 1300000 },
         { villa: 8, month: 3, amount: 1300000 },
         { villa: 8, month: 4, amount: 1300000 },
-        // Villa 10: FEB 1,300,000
+        // Villa 9: FEB 1,300,000 | MAR 900,000
+        { villa: 9, month: 1, amount: 1300000 },
+        { villa: 9, month: 2, amount: 900000 },
+        // Villa 10: FEB 1,300,000 | MAR 1,300,000
         { villa: 10, month: 1, amount: 1300000 },
-        // Villa 11: FEB 1,300,000 | MAR 1,300,000
+        { villa: 10, month: 2, amount: 1300000 },
+        // Villa 11: FEB 1,300,000 | MAR 1,300,000 | APR 1,300,000
         { villa: 11, month: 1, amount: 1300000 },
         { villa: 11, month: 2, amount: 1300000 },
-        // Villa 12: FEB 1,300,000 | MAR 1,300,000
+        { villa: 11, month: 3, amount: 1300000 },
+        // Villa 12: FEB 1,300,000 | MAR 1,300,000 | APR 1,300,000
         { villa: 12, month: 1, amount: 1300000 },
         { villa: 12, month: 2, amount: 1300000 },
+        { villa: 12, month: 3, amount: 1300000 },
         // Villa 13: FEB 1,300,000 | MAR 1,300,000
         { villa: 13, month: 1, amount: 1300000 },
         { villa: 13, month: 2, amount: 1300000 },
+        // Villa 14: FEB 1,300,000
+        { villa: 14, month: 1, amount: 1300000 },
+        // Villa 15: (no payments)
         // Villa 18: FEB 1,300,000 | MAR 1,300,000
         { villa: 18, month: 1, amount: 1300000 },
         { villa: 18, month: 2, amount: 1300000 },
+        // Villa 19: FEB 1,300,000 | MAR 1,300,000
+        { villa: 19, month: 1, amount: 1300000 },
+        { villa: 19, month: 2, amount: 1300000 },
+        // Villa 20: (no payments)
+        // Villa 21: FEB 1,300,000 | MAR 900,000
+        { villa: 21, month: 1, amount: 1300000 },
+        { villa: 21, month: 2, amount: 900000 },
+        // Villa 22: FEB 1,300,000 | MAR 1,300,000
+        { villa: 22, month: 1, amount: 1300000 },
+        { villa: 22, month: 2, amount: 1300000 },
         // Villa 23: FEB 1,300,000 | MAR 1,300,000
         { villa: 23, month: 1, amount: 1300000 },
         { villa: 23, month: 2, amount: 1300000 },
-        // Villa 24: FEB 1,300,000
+        // Villa 24: FEB 1,300,000 | MAR 1,300,000
         { villa: 24, month: 1, amount: 1300000 },
+        { villa: 24, month: 2, amount: 1300000 },
         // Villa 25: FEB 1,300,000 | MAR 1,300,000
         { villa: 25, month: 1, amount: 1300000 },
         { villa: 25, month: 2, amount: 1300000 },
         // Villa 26: FEB 1,300,000 | MAR 1,300,000
         { villa: 26, month: 1, amount: 1300000 },
         { villa: 26, month: 2, amount: 1300000 },
+        // Villa 27: FEB 1,300,000 | MAR 1,300,000
+        { villa: 27, month: 1, amount: 1300000 },
+        { villa: 27, month: 2, amount: 1300000 },
+        // Villa 28: FEB 1,300,000 | MAR 900,000
+        { villa: 28, month: 1, amount: 1300000 },
+        { villa: 28, month: 2, amount: 900000 },
         // Villa 29: FEB 1,300,000 | MAR 1,300,000
         { villa: 29, month: 1, amount: 1300000 },
         { villa: 29, month: 2, amount: 1300000 },
+        // Villa 31: FEB 1,300,000 | MAR 1,300,000
+        { villa: 31, month: 1, amount: 1300000 },
+        { villa: 31, month: 2, amount: 1300000 },
         // Villa 32: FEB 1,300,000 | MAR 1,300,000
         { villa: 32, month: 1, amount: 1300000 },
         { villa: 32, month: 2, amount: 1300000 },
+        // Villa 37: FEB 1,300,000 | MAR 1,300,000
+        { villa: 37, month: 1, amount: 1300000 },
+        { villa: 37, month: 2, amount: 1300000 },
         // Villa 38: FEB 1,300,000 | MAR 1,300,000
         { villa: 38, month: 1, amount: 1300000 },
         { villa: 38, month: 2, amount: 1300000 },
@@ -86,6 +127,9 @@ async function main() {
         // Villa 41: FEB 1,300,000 | MAR 1,300,000
         { villa: 41, month: 1, amount: 1300000 },
         { villa: 41, month: 2, amount: 1300000 },
+        // Villa 42: FEB 1,300,000 | MAR 1,300,000
+        { villa: 42, month: 1, amount: 1300000 },
+        { villa: 42, month: 2, amount: 1300000 },
     ];
 
     const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { sendEmail, closeEmailPool } from "@/lib/email";
 import { calculateOwnerDebt, generateInvoiceHTML, generateReceiptHTML } from "@/lib/invoice-template";
 
+const MONTHLY_DUES = 1_300_000;
+
 const MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
@@ -94,14 +96,15 @@ export async function GET(request: Request) {
             }));
             const debt = calculateOwnerDebt(txns, currentYear, currentMonth);
 
-            // Calculate unpaid months: from billing start to current month
-            const unpaidMonths: string[] = [];
+            // Calculate unpaid/partially-paid months: from billing start to current month
+            // A month is unpaid if paidInMonth === 0, partially paid if 0 < paidInMonth < MONTHLY_DUES
+            const unpaidMonths: { month: string; amountDue: number }[] = [];
             const startYear = 2026;
             const startMonth = 2; // February
             let y = startYear;
             let m = startMonth;
             while (y < currentYear || (y === currentYear && m <= currentMonth)) {
-                // Check if this month has any payment
+                // Check how much was paid in this specific month
                 const paidInMonth = txns
                     .filter((t) => {
                         if (t.type !== "INCOME") return false;
@@ -110,8 +113,11 @@ export async function GET(request: Request) {
                     })
                     .reduce((sum, t) => sum + t.amount, 0);
 
-                if (paidInMonth <= 0) {
-                    unpaidMonths.push(`${MONTH_NAMES[m - 1]} ${y}`);
+                if (paidInMonth < MONTHLY_DUES) {
+                    unpaidMonths.push({
+                        month: `${MONTH_NAMES[m - 1]} ${y}`,
+                        amountDue: MONTHLY_DUES - paidInMonth,
+                    });
                 }
 
                 m++;
@@ -129,7 +135,7 @@ export async function GET(request: Request) {
                 unpaidMonths,
             };
 
-            // Decide: Receipt (paid this month) vs Invoice (has unpaid months)
+            // Decide: Receipt (all months fully paid) vs Invoice (has outstanding balance)
             let html: string;
             let subject: string;
             let emailType: "invoice" | "receipt";
@@ -140,7 +146,7 @@ export async function GET(request: Request) {
                 html = generateReceiptHTML(emailData);
                 subject = `[Receipt] Edenia Private Villas - ${invoiceMonth} — Payment Received`;
             } else {
-                // Has unpaid months → send Invoice
+                // Has unpaid/partially-paid months → send Invoice
                 emailType = "invoice";
                 html = generateInvoiceHTML(emailData);
                 subject = unpaidMonths.length === 1
