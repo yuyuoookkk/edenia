@@ -1,20 +1,23 @@
 import nodemailer from "nodemailer";
 import path from "path";
 
-// Use connection pooling to reuse the same SMTP connection
-// This prevents Gmail from rate-limiting with "Too many login attempts"
-const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-    },
-    pool: true,          // Enable connection pooling
-    maxConnections: 1,   // Single connection to avoid rate limits
-    maxMessages: 50,     // Max messages per connection
-    rateDelta: 2000,     // Minimum time between messages (2 seconds)
-    rateLimit: 1,        // Max 1 message per rateDelta
-});
+// Create a fresh transporter for each batch — avoids the "closed pool" crash
+function createTransporter() {
+    return nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASSWORD,
+        },
+        pool: true,          // Enable connection pooling
+        maxConnections: 1,   // Single connection to avoid rate limits
+        maxMessages: 50,     // Max messages per connection
+        rateDelta: 2000,     // Minimum time between messages (2 seconds)
+        rateLimit: 1,        // Max 1 message per rateDelta
+    });
+}
+
+let transporter = createTransporter();
 
 export async function sendEmail(
     to: string,
@@ -42,7 +45,8 @@ export async function sendEmail(
     }
 }
 
-// Close the transporter pool when done sending batch emails
+// Close the transporter pool and recreate it for next batch
 export async function closeEmailPool(): Promise<void> {
     transporter.close();
+    transporter = createTransporter(); // Recreate so next request works
 }
