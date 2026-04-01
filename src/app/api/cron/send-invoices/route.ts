@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendEmail, closeEmailPool } from "@/lib/email";
-import { calculateOwnerDebt, generateInvoiceHTML, generateReceiptHTML } from "@/lib/invoice-template";
+import { generateInvoiceHTML, generateReceiptHTML } from "@/lib/invoice-template";
 
 const MONTHLY_DUES = 1_300_000;
 
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
         // Optional: override month for testing (e.g. ?test_month=2026-02)
         const { searchParams } = new URL(request.url);
         const testEmail = searchParams.get("test_email");
-        const testMonth = searchParams.get("test_month"); // e.g. "2026-02"
+        const testMonth = searchParams.get("test_month"); // e.g. "2026-04"
 
         let currentYear: number;
         let currentMonth: number;
@@ -48,12 +48,21 @@ export async function GET(request: Request) {
         const invoiceMonth = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
         console.log(`[CRON] Processing for: ${invoiceMonth}`);
 
-        // Fetch owners with their INCOME transactions
+        // Fetch owners with their INCOME transactions for the CURRENT MONTH only
+        const monthStart = new Date(currentYear, currentMonth - 1, 1);
+        const monthEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+
         const owners = await prisma.villaOwner.findMany({
             where: testEmail ? { email: testEmail } : undefined,
             include: {
                 transactions: {
-                    where: { type: "INCOME" },
+                    where: {
+                        type: "INCOME",
+                        date: {
+                            gte: monthStart,
+                            lte: monthEnd,
+                        },
+                    },
                 },
             },
         });
@@ -64,7 +73,7 @@ export async function GET(request: Request) {
             owner: string;
             villa: string;
             email: string | null;
-            balance: number;
+            paidThisMonth: number;
             type: "invoice" | "receipt" | "skipped";
             status: "sent" | "skipped" | "failed";
             error?: string;
@@ -80,7 +89,7 @@ export async function GET(request: Request) {
                     owner: owner.name,
                     villa: owner.unitNumber || "N/A",
                     email: null,
-                    balance: 0,
+                    paidThisMonth: 0,
                     type: "skipped",
                     status: "skipped",
                     error: "No email address",
@@ -88,70 +97,31 @@ export async function GET(request: Request) {
                 continue;
             }
 
-            // Calculate debt
-            const txns = owner.transactions.map((t) => ({
-                amount: t.amount,
-                date: t.date.toISOString(),
-                type: t.type,
-            }));
-            const debt = calculateOwnerDebt(txns, currentYear, currentMonth);
-
-            // Calculate unpaid/partially-paid months: from billing start to current month
-            // A month is unpaid if paidInMonth === 0, partially paid if 0 < paidInMonth < MONTHLY_DUES
-            const unpaidMonths: { month: string; amountDue: number }[] = [];
-            const startYear = 2026;
-            const startMonth = 2; // February
-            let y = startYear;
-            let m = startMonth;
-            while (y < currentYear || (y === currentYear && m <= currentMonth)) {
-                // Check how much was paid in this specific month
-                const paidInMonth = txns
-                    .filter((t) => {
-                        if (t.type !== "INCOME") return false;
-                        const d = new Date(t.date);
-                        return d.getFullYear() === y && d.getMonth() + 1 === m;
-                    })
-                    .reduce((sum, t) => sum + t.amount, 0);
-
-                if (paidInMonth < MONTHLY_DUES) {
-                    unpaidMonths.push({
-                        month: `${MONTH_NAMES[m - 1]} ${y}`,
-                        amountDue: MONTHLY_DUES - paidInMonth,
-                    });
-                }
-
-                m++;
-                if (m > 12) { m = 1; y++; }
-            }
+            // Calculate total paid THIS MONTH only
+            const paidThisMonth = owner.transactions.reduce((sum, t) => sum + t.amount, 0);
 
             const emailData = {
                 villaNumber: owner.unitNumber || "N/A",
                 invoiceMonth,
-                totalRequired: debt.totalRequired,
-                totalPaid: debt.totalPaid,
-                balance: debt.balance,
-                monthsBilled: debt.monthsBilled,
-                paidThisMonth: debt.paidThisMonth,
-                unpaidMonths,
+                monthlyDues: MONTHLY_DUES,
+                paidThisMonth,
             };
 
-            // Decide: Receipt (all months fully paid) vs Invoice (has outstanding balance)
+            // Decide: Receipt (paid this month) vs Invoice (not paid this month)
             let html: string;
             let subject: string;
             let emailType: "invoice" | "receipt";
 
-            if (unpaidMonths.length === 0) {
-                // All months paid → send Receipt
+            if (paidThisMonth >= MONTHLY_DUES) {
+                // Paid for this month → send Receipt
                 emailType = "receipt";
                 html = generateReceiptHTML(emailData);
                 subject = `[Receipt] Edenia Private Villas - ${invoiceMonth} — Payment Received`;
             } else {
-                // Has unpaid/partially-paid months → send Invoice
+                // Not paid (or partial) → send Invoice
                 emailType = "invoice";
                 html = generateInvoiceHTML(emailData);
-                subject = unpaidMonths.length === 1
-                    ? `[Invoice] Edenia Private Villas - ${invoiceMonth} — Payment Due`
-                    : `[Invoice] Edenia Private Villas - ${invoiceMonth} — ${unpaidMonths.length} Months Due`;
+                subject = `[Invoice] Edenia Private Villas - ${invoiceMonth} — Payment Due`;
             }
 
             console.log(`[CRON] [${i + 1}/${owners.length}] Sending ${emailType} to ${owner.name} (${owner.email})...`);
@@ -168,7 +138,7 @@ export async function GET(request: Request) {
                 owner: owner.name,
                 villa: owner.unitNumber || "N/A",
                 email: owner.email,
-                balance: debt.balance,
+                paidThisMonth,
                 type: emailType,
                 status: result.success ? "sent" : "failed",
                 error: result.error,

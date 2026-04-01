@@ -1,6 +1,4 @@
 const MONTHLY_DUES = 1_300_000;
-const BILLING_START_YEAR = 2026;
-const BILLING_START_MONTH = 2; // February (1-indexed)
 
 function formatIDR(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -11,55 +9,11 @@ function formatIDR(amount: number): string {
     }).format(Math.abs(amount));
 }
 
-export function getMonthsBilled(upToYear: number, upToMonth: number): number {
-    if (upToYear < BILLING_START_YEAR) return 0;
-    if (upToYear === BILLING_START_YEAR && upToMonth < BILLING_START_MONTH) return 0;
-
-    // Use absolute month counting for correct multi-year calculation
-    const startTotal = (BILLING_START_YEAR * 12) + BILLING_START_MONTH;
-    const endTotal = (upToYear * 12) + upToMonth;
-    return endTotal - startTotal + 1;
-}
-
-export function calculateOwnerDebt(
-    transactions: { amount: number; date: string | Date; type: string }[],
-    upToYear: number,
-    upToMonth: number
-): { totalRequired: number; totalPaid: number; balance: number; monthsBilled: number; paidThisMonth: number } {
-    const monthsBilled = getMonthsBilled(upToYear, upToMonth);
-    const totalRequired = MONTHLY_DUES * monthsBilled;
-
-    const totalPaid = transactions
-        .filter((t) => t.type === "INCOME")
-        .reduce((sum, t) => sum + t.amount, 0);
-
-    // Check payments made in the current month
-    const paidThisMonth = transactions
-        .filter((t) => {
-            if (t.type !== "INCOME") return false;
-            const d = new Date(t.date);
-            return d.getFullYear() === upToYear && d.getMonth() + 1 === upToMonth;
-        })
-        .reduce((sum, t) => sum + t.amount, 0);
-
-    const balance = totalPaid - totalRequired;
-    return { totalRequired, totalPaid, balance, monthsBilled, paidThisMonth };
-}
-
-type UnpaidMonthEntry = {
-    month: string;    // e.g. "February 2026"
-    amountDue: number; // remaining amount due for this month (1,300,000 if fully unpaid, or partial remainder)
-};
-
 type EmailData = {
     villaNumber: string;
-    invoiceMonth: string;
-    totalRequired: number;
-    totalPaid: number;
-    balance: number;
-    monthsBilled: number;
-    paidThisMonth: number;
-    unpaidMonths: UnpaidMonthEntry[]; // Months with outstanding balance
+    invoiceMonth: string;   // e.g. "April 2026"
+    monthlyDues: number;    // 1,300,000
+    paidThisMonth: number;  // how much paid this month
 };
 
 // Shared sections used by both templates
@@ -152,21 +106,13 @@ ${content}
 </html>`;
 }
 
-// ─── INVOICE (unpaid / has debt) ────────────────────────────────────────
+// ─── INVOICE (not paid this month) ──────────────────────────────────────
 export function generateInvoiceHTML(data: EmailData): string {
-    // Calculate the actual total due from individual month entries
-    const totalDue = data.unpaidMonths.reduce((sum, entry) => sum + entry.amountDue, 0);
+    const amountDue = data.monthlyDues - data.paidThisMonth;
 
     // Parse invoiceMonth (e.g. "April 2026") to build the due date
     const parts = data.invoiceMonth.split(" ");
     const dueDate = `15 ${parts[0]} ${parts[1]}`;
-
-    // Build a row for each unpaid/partially-paid month
-    const monthRows = data.unpaidMonths.map((entry) => `
-                                <tr>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">${entry.month}${entry.amountDue < MONTHLY_DUES ? ' <span style="color:#9ca3af;font-size:12px;">(partial)</span>' : ''}</td>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(entry.amountDue)}</td>
-                                </tr>`).join("");
 
     const content = `
 ${headerSection("EDENIA PRIVATE VILLAS", "Monthly Invoice", "#7f1d1d", "#991b1b", "#fca5a5")}
@@ -201,13 +147,20 @@ ${headerSection("EDENIA PRIVATE VILLAS", "Monthly Invoice", "#7f1d1d", "#991b1b"
                         <td style="padding:0 40px;">
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
                                 <tr style="background-color:#f9fafb;">
-                                    <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Month</td>
-                                    <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Amount Due</td>
+                                    <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Description</td>
+                                    <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Amount</td>
                                 </tr>
-${monthRows}
+                                <tr>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Monthly Dues — ${data.invoiceMonth}</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(data.monthlyDues)}</td>
+                                </tr>${data.paidThisMonth > 0 ? `
+                                <tr>
+                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;">Partial Payment Received</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">- ${formatIDR(data.paidThisMonth)}</td>
+                                </tr>` : ''}
                                 <tr style="background-color:#FEF2F2;">
-                                    <td style="padding:16px;font-size:15px;color:#DC2626;border-top:2px solid #DC2626;font-weight:700;">Total Due</td>
-                                    <td style="padding:16px;font-size:15px;color:#DC2626;border-top:2px solid #DC2626;text-align:right;font-weight:700;">${formatIDR(totalDue)}</td>
+                                    <td style="padding:16px;font-size:15px;color:#DC2626;border-top:2px solid #DC2626;font-weight:700;">Amount Due</td>
+                                    <td style="padding:16px;font-size:15px;color:#DC2626;border-top:2px solid #DC2626;text-align:right;font-weight:700;">${formatIDR(amountDue)}</td>
                                 </tr>
                             </table>
                         </td>
@@ -219,7 +172,7 @@ ${monthRows}
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FEF2F2;border-radius:8px;border:1px solid #FECACA;">
                                 <tr>
                                     <td style="padding:20px 24px;text-align:center;">
-                                        <p style="margin:0;font-size:18px;font-weight:700;color:#DC2626;">⚠ Payment Required: ${formatIDR(totalDue)}</p>
+                                        <p style="margin:0;font-size:18px;font-weight:700;color:#DC2626;">⚠ Payment Required: ${formatIDR(amountDue)}</p>
                                         <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">Please settle this amount by ${dueDate}.</p>
                                     </td>
                                 </tr>
@@ -273,16 +226,16 @@ ${headerSection("EDENIA PRIVATE VILLAS", "Payment Receipt", "#064e3b", "#047857"
                                     <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Amount</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Total Required (${data.monthsBilled} months)</td>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(data.totalRequired)}</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Monthly Dues — ${data.invoiceMonth}</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(data.monthlyDues)}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;">Total Paid</td>
-                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;text-align:right;font-weight:600;">${formatIDR(data.totalPaid)}</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;">Payment Received</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;text-align:right;font-weight:600;">${formatIDR(data.paidThisMonth)}</td>
                                 </tr>
                                 <tr style="background-color:#ECFDF5;">
                                     <td style="padding:16px;font-size:15px;color:#059669;border-top:2px solid #059669;font-weight:700;">Balance</td>
-                                    <td style="padding:16px;font-size:15px;color:#059669;border-top:2px solid #059669;text-align:right;font-weight:700;">${data.balance >= 0 ? formatIDR(data.balance) : `- ${formatIDR(data.balance)}`}</td>
+                                    <td style="padding:16px;font-size:15px;color:#059669;border-top:2px solid #059669;text-align:right;font-weight:700;">${formatIDR(0)}</td>
                                 </tr>
                             </table>
                         </td>
@@ -295,7 +248,7 @@ ${headerSection("EDENIA PRIVATE VILLAS", "Payment Receipt", "#064e3b", "#047857"
                                 <tr>
                                     <td style="padding:20px 24px;text-align:center;">
                                         <p style="margin:0;font-size:18px;font-weight:700;color:#059669;">✓ Payment Received — Thank You!</p>
-                                        <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">Your account is up to date. Total paid: ${formatIDR(data.totalPaid)}.</p>
+                                        <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">Your payment of ${formatIDR(data.paidThisMonth)} for ${data.invoiceMonth} has been recorded.</p>
                                     </td>
                                 </tr>
                             </table>
