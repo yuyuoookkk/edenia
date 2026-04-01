@@ -9,11 +9,20 @@ function formatIDR(amount: number): string {
     }).format(Math.abs(amount));
 }
 
+type MonthDebt = {
+    month: string;
+    dues: number;
+    paid: number;
+    debt: number;
+};
+
 type EmailData = {
     villaNumber: string;
     invoiceMonth: string;   // e.g. "April 2026"
     monthlyDues: number;    // 1,300,000
     paidThisMonth: number;  // how much paid this month
+    monthlyBreakdown?: MonthDebt[];
+    totalAccumulatedDebt?: number;
 };
 
 // Shared sections used by both templates
@@ -106,16 +115,57 @@ ${content}
 </html>`;
 }
 
-// ─── INVOICE (not paid this month) ──────────────────────────────────────
+// ─── INVOICE (not paid / accumulated debt) ──────────────────────────────
 export function generateInvoiceHTML(data: EmailData): string {
-    const amountDue = data.monthlyDues - data.paidThisMonth;
+    const breakdown = data.monthlyBreakdown || [];
+    const totalDebt = data.totalAccumulatedDebt ?? Math.max(0, data.monthlyDues - data.paidThisMonth);
+    const hasAccumulatedDebt = breakdown.length > 1;
 
-    // Parse invoiceMonth (e.g. "April 2026") to build the due date
     const parts = data.invoiceMonth.split(" ");
     const dueDate = `15 ${parts[0]} ${parts[1]}`;
 
+    // Build per-month breakdown rows
+    let breakdownRows = '';
+    if (breakdown.length > 0) {
+        for (const entry of breakdown) {
+            breakdownRows += `
+                                <tr>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Monthly Dues — ${entry.month}</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(entry.dues)}</td>
+                                </tr>`;
+            if (entry.paid > 0) {
+                breakdownRows += `
+                                <tr>
+                                    <td style="padding:8px 16px 14px 32px;font-size:13px;color:#059669;border-top:1px solid #f3f4f6;">↳ Payment Received</td>
+                                    <td style="padding:8px 16px 14px;font-size:13px;color:#059669;border-top:1px solid #f3f4f6;text-align:right;font-weight:500;">− ${formatIDR(entry.paid)}</td>
+                                </tr>`;
+            }
+        }
+    } else {
+        breakdownRows = `
+                                <tr>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Monthly Dues — ${data.invoiceMonth}</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(data.monthlyDues)}</td>
+                                </tr>`;
+        if (data.paidThisMonth > 0) {
+            breakdownRows += `
+                                <tr>
+                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;">Partial Payment Received</td>
+                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">− ${formatIDR(data.paidThisMonth)}</td>
+                                </tr>`;
+        }
+    }
+
+    const totalLabel = 'Amount Due';
+    const warningText = hasAccumulatedDebt
+        ? `⚠ Outstanding Balance: ${formatIDR(totalDebt)} (${breakdown.length} months)`
+        : `⚠ Payment Required: ${formatIDR(totalDebt)}`;
+    const warningSubtext = hasAccumulatedDebt
+        ? `This balance includes unpaid dues from previous months. Please settle immediately.`
+        : `Please settle this amount by ${dueDate}.`;
+
     const content = `
-${headerSection("EDENIA PRIVATE VILLAS", "Monthly Invoice", "#7f1d1d", "#991b1b", "#fca5a5")}
+${headerSection("EDENIA PRIVATE VILLAS", hasAccumulatedDebt ? "Outstanding Balance" : "Monthly Invoice", "#7f1d1d", "#991b1b", "#fca5a5")}
 
                     <!-- Invoice Details -->
                     <tr>
@@ -150,17 +200,10 @@ ${headerSection("EDENIA PRIVATE VILLAS", "Monthly Invoice", "#7f1d1d", "#991b1b"
                                     <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Description</td>
                                     <td style="padding:12px 16px;font-size:13px;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;text-align:right;">Amount</td>
                                 </tr>
-                                <tr>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;">Monthly Dues — ${data.invoiceMonth}</td>
-                                    <td style="padding:14px 16px;font-size:14px;color:#374151;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">${formatIDR(data.monthlyDues)}</td>
-                                </tr>${data.paidThisMonth > 0 ? `
-                                <tr>
-                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;">Partial Payment Received</td>
-                                    <td style="padding:14px 16px;font-size:14px;color:#059669;border-top:1px solid #e5e7eb;text-align:right;font-weight:500;">- ${formatIDR(data.paidThisMonth)}</td>
-                                </tr>` : ''}
+${breakdownRows}
                                 <tr style="background-color:#FEF2F2;">
-                                    <td style="padding:16px;font-size:15px;color:#DC2626;border-top:2px solid #DC2626;font-weight:700;">Amount Due</td>
-                                    <td style="padding:16px;font-size:15px;color:#DC2626;border-top:2px solid #DC2626;text-align:right;font-weight:700;">${formatIDR(amountDue)}</td>
+                                    <td style="padding:16px;font-size:15px;color:#DC2626;border-top:2px solid #DC2626;font-weight:700;">${totalLabel}</td>
+                                    <td style="padding:16px;font-size:15px;color:#DC2626;border-top:2px solid #DC2626;text-align:right;font-weight:700;">${formatIDR(totalDebt)}</td>
                                 </tr>
                             </table>
                         </td>
@@ -172,8 +215,8 @@ ${headerSection("EDENIA PRIVATE VILLAS", "Monthly Invoice", "#7f1d1d", "#991b1b"
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FEF2F2;border-radius:8px;border:1px solid #FECACA;">
                                 <tr>
                                     <td style="padding:20px 24px;text-align:center;">
-                                        <p style="margin:0;font-size:18px;font-weight:700;color:#DC2626;">⚠ Payment Required: ${formatIDR(amountDue)}</p>
-                                        <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">Please settle this amount by ${dueDate}.</p>
+                                        <p style="margin:0;font-size:18px;font-weight:700;color:#DC2626;">${warningText}</p>
+                                        <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">${warningSubtext}</p>
                                     </td>
                                 </tr>
                             </table>

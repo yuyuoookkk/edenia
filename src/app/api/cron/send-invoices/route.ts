@@ -4,6 +4,8 @@ import { sendEmail, closeEmailPool } from "@/lib/email";
 import { generateInvoiceHTML, generateReceiptHTML } from "@/lib/invoice-template";
 
 const MONTHLY_DUES = 1_300_000;
+const BILLING_START_YEAR = 2026;
+const BILLING_START_MONTH = 2; // February (1-indexed)
 
 const MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June",
@@ -48,20 +50,13 @@ export async function GET(request: Request) {
         const invoiceMonth = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
         console.log(`[CRON] Processing for: ${invoiceMonth}`);
 
-        // Fetch owners with their INCOME transactions for the CURRENT MONTH only
-        const monthStart = new Date(currentYear, currentMonth - 1, 1);
-        const monthEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59);
-
+        // Fetch owners with ALL their INCOME transactions (for accumulated debt calculation)
         const owners = await prisma.villaOwner.findMany({
             where: testEmail ? { email: testEmail } : undefined,
             include: {
                 transactions: {
                     where: {
                         type: "INCOME",
-                        date: {
-                            gte: monthStart,
-                            lte: monthEnd,
-                        },
                     },
                 },
             },
@@ -97,28 +92,62 @@ export async function GET(request: Request) {
                 continue;
             }
 
-            // Calculate total paid THIS MONTH only
-            const paidThisMonth = owner.transactions.reduce((sum, t) => sum + t.amount, 0);
+            // Group payments by month
+            const paymentsByMonth: Record<string, number> = {};
+            for (const t of owner.transactions) {
+                const d = new Date(t.date);
+                const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+                paymentsByMonth[key] = (paymentsByMonth[key] || 0) + t.amount;
+            }
+
+            // Calculate debt for each month from billing start to current month
+            const monthlyBreakdown: { month: string; dues: number; paid: number; debt: number }[] = [];
+            let totalAccumulatedDebt = 0;
+            let calcYear = BILLING_START_YEAR;
+            let calcMonth = BILLING_START_MONTH;
+
+            while (calcYear < currentYear || (calcYear === currentYear && calcMonth <= currentMonth)) {
+                const key = `${calcYear}-${calcMonth}`;
+                const paid = paymentsByMonth[key] || 0;
+                const debt = Math.max(0, MONTHLY_DUES - paid);
+
+                if (debt > 0) {
+                    monthlyBreakdown.push({
+                        month: `${MONTH_NAMES[calcMonth - 1]} ${calcYear}`,
+                        dues: MONTHLY_DUES,
+                        paid,
+                        debt,
+                    });
+                    totalAccumulatedDebt += debt;
+                }
+
+                calcMonth++;
+                if (calcMonth > 12) { calcMonth = 1; calcYear++; }
+            }
+
+            const paidThisMonth = paymentsByMonth[`${currentYear}-${currentMonth}`] || 0;
 
             const emailData = {
                 villaNumber: owner.unitNumber || "N/A",
                 invoiceMonth,
                 monthlyDues: MONTHLY_DUES,
                 paidThisMonth,
+                monthlyBreakdown,
+                totalAccumulatedDebt,
             };
 
-            // Decide: Receipt (paid this month) vs Invoice (not paid this month)
+            // Decide: Receipt (no debt) vs Invoice (has outstanding balance)
             let html: string;
             let subject: string;
             let emailType: "invoice" | "receipt";
 
-            if (paidThisMonth >= MONTHLY_DUES) {
-                // Paid for this month → send Receipt
+            if (totalAccumulatedDebt === 0) {
+                // No outstanding debt → send Receipt
                 emailType = "receipt";
                 html = generateReceiptHTML(emailData);
                 subject = `[Receipt] Edenia Private Villas - ${invoiceMonth} — Payment Received`;
             } else {
-                // Not paid (or partial) → send Invoice
+                // Has outstanding debt → send Invoice with accumulated breakdown
                 emailType = "invoice";
                 html = generateInvoiceHTML(emailData);
                 subject = `[Invoice] Edenia Private Villas - ${invoiceMonth} — Payment Due`;
