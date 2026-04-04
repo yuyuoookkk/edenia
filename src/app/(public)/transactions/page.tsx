@@ -18,9 +18,6 @@ const KNOWN_CATEGORIES = [
     "Repairs Maintain"
 ];
 
-// Categories that appear before the Balance/Date columns
-const CATEGORIES_BEFORE = ["Wages", "Village Expenses", "Bank Charges", "Edenia Expenses"];
-const CATEGORY_AFTER = "Repairs Maintain";
 
 // Month end dates (non-leap year default; leap year handled dynamically)
 function getLastDayOfMonth(year: number, monthIndex: number): number {
@@ -139,11 +136,10 @@ export default function TransactionsPage() {
                         <TableHeader className="bg-muted/50">
                             <TableRow>
                                 <TableHead className="border-r w-[90px]">Date</TableHead>
-                                {CATEGORIES_BEFORE.map(cat => (
+                                {KNOWN_CATEGORIES.map(cat => (
                                     <TableHead key={cat} className="border-r text-right w-[80px] whitespace-normal leading-tight mx-auto px-2">{cat.replace(' ', '\n')}</TableHead>
                                 ))}
                                 <TableHead className="border-r text-center w-[110px] font-bold tracking-tight leading-tight px-2">DATE</TableHead>
-                                <TableHead className="border-r text-right w-[80px] whitespace-normal leading-tight mx-auto px-2">{CATEGORY_AFTER.replace(' ', '\n')}</TableHead>
                                 <TableHead className="border-r text-right w-[120px] font-bold tracking-tight leading-tight px-2">BALANCE<br />OF ACCOUNT</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -156,16 +152,13 @@ export default function TransactionsPage() {
                                     <TableRow key={data.monthIndex} className="hover:bg-muted/30 transition-colors">
                                         <TableCell className="border-r font-medium text-center bg-slate-50/50">{data.monthName}</TableCell>
 
-                                        {CATEGORIES_BEFORE.map(cat => (
+                                        {KNOWN_CATEGORIES.map(cat => (
                                             <TableCell key={cat} className="border-r text-right">
                                                 {data.expensesByCategory[cat] > 0 ? formatIDR(data.expensesByCategory[cat]) : ""}
                                             </TableCell>
                                         ))}
                                         <TableCell className="border-r text-center font-medium text-slate-700">
                                             {MONTH_FULL_NAMES[data.monthIndex]} / {getLastDayOfMonth(currentYear, data.monthIndex)}
-                                        </TableCell>
-                                        <TableCell className="border-r text-right">
-                                            {data.expensesByCategory[CATEGORY_AFTER] > 0 ? formatIDR(data.expensesByCategory[CATEGORY_AFTER]) : ""}
                                         </TableCell>
                                         <TableCell className="border-r text-right bg-slate-50 font-bold tracking-tighter text-blue-800">
                                             {manualBalance ? formatIDR(manualBalance) : ""}
@@ -179,7 +172,7 @@ export default function TransactionsPage() {
                                 <TableCell className="border-r font-bold uppercase text-emerald-800 text-center pr-4">
                                     YEAR TOTAL
                                 </TableCell>
-                                {CATEGORIES_BEFORE.map(cat => {
+                                {KNOWN_CATEGORIES.map(cat => {
                                     const total = transactions
                                         .filter(t => t.type === 'EXPENSE' && t.category === cat)
                                         .reduce((sum, t) => sum + t.amount, 0);
@@ -190,16 +183,6 @@ export default function TransactionsPage() {
                                     );
                                 })}
                                 <TableCell className="border-r"></TableCell>
-                                {(() => {
-                                    const total = transactions
-                                        .filter(t => t.type === 'EXPENSE' && t.category === CATEGORY_AFTER)
-                                        .reduce((sum, t) => sum + t.amount, 0);
-                                    return (
-                                        <TableCell className="border-r text-right font-bold text-rose-700">
-                                            {total > 0 ? formatIDR(total) : ""}
-                                        </TableCell>
-                                    );
-                                })()}
                                 <TableCell className="border-r text-right bg-blue-100 align-bottom pt-3 pb-3">
                                     <div className="flex flex-col items-end justify-end font-bold text-blue-800 tracking-tighter">
                                         <span className="text-[10px] text-blue-600/80 leading-tight uppercase">TOTAL BANK BALANCE</span>
