@@ -142,9 +142,9 @@ export default function TransactionsPage() {
                                 {CATEGORIES_BEFORE.map(cat => (
                                     <TableHead key={cat} className="border-r text-right w-[80px] whitespace-normal leading-tight mx-auto px-2">{cat.replace(' ', '\n')}</TableHead>
                                 ))}
-                                <TableHead className="border-r text-right w-[120px] font-bold tracking-tight leading-tight px-2">BALANCE<br />OF ACCOUNT</TableHead>
                                 <TableHead className="border-r text-center w-[110px] font-bold tracking-tight leading-tight px-2">DATE</TableHead>
                                 <TableHead className="border-r text-right w-[80px] whitespace-normal leading-tight mx-auto px-2">{CATEGORY_AFTER.replace(' ', '\n')}</TableHead>
+                                <TableHead className="border-r text-right w-[120px] font-bold tracking-tight leading-tight px-2">BALANCE<br />OF ACCOUNT</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -161,14 +161,14 @@ export default function TransactionsPage() {
                                                 {data.expensesByCategory[cat] > 0 ? formatIDR(data.expensesByCategory[cat]) : ""}
                                             </TableCell>
                                         ))}
-                                        <TableCell className="border-r text-right bg-slate-50 font-bold tracking-tighter text-blue-800">
-                                            {manualBalance ? formatIDR(manualBalance) : ""}
-                                        </TableCell>
                                         <TableCell className="border-r text-center font-medium text-slate-700">
                                             {MONTH_FULL_NAMES[data.monthIndex]} / {getLastDayOfMonth(currentYear, data.monthIndex)}
                                         </TableCell>
                                         <TableCell className="border-r text-right">
                                             {data.expensesByCategory[CATEGORY_AFTER] > 0 ? formatIDR(data.expensesByCategory[CATEGORY_AFTER]) : ""}
+                                        </TableCell>
+                                        <TableCell className="border-r text-right bg-slate-50 font-bold tracking-tighter text-blue-800">
+                                            {manualBalance ? formatIDR(manualBalance) : ""}
                                         </TableCell>
                                     </TableRow>
                                 );
@@ -189,12 +189,6 @@ export default function TransactionsPage() {
                                         </TableCell>
                                     );
                                 })}
-                                <TableCell className="border-r text-right bg-blue-100 align-bottom pt-3 pb-3">
-                                    <div className="flex flex-col items-end justify-end font-bold text-blue-800 tracking-tighter">
-                                        <span className="text-[10px] text-blue-600/80 leading-tight uppercase">TOTAL BANK BALANCE</span>
-                                        <span className="text-sm">{formatIDR(monthlyBalances[12] || 0)}</span>
-                                    </div>
-                                </TableCell>
                                 <TableCell className="border-r"></TableCell>
                                 {(() => {
                                     const total = transactions
@@ -206,6 +200,12 @@ export default function TransactionsPage() {
                                         </TableCell>
                                     );
                                 })()}
+                                <TableCell className="border-r text-right bg-blue-100 align-bottom pt-3 pb-3">
+                                    <div className="flex flex-col items-end justify-end font-bold text-blue-800 tracking-tighter">
+                                        <span className="text-[10px] text-blue-600/80 leading-tight uppercase">TOTAL BANK BALANCE</span>
+                                        <span className="text-sm">{formatIDR(monthlyBalances[12] || 0)}</span>
+                                    </div>
+                                </TableCell>
                             </TableRow>
                         </TableBody>
                     </Table>
