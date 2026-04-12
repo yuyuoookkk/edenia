@@ -140,13 +140,13 @@ export default function TransactionsPage() {
                                     <TableHead key={cat} className="border-r text-right w-[80px] whitespace-normal leading-tight mx-auto px-2">{cat.replace(' ', '\n')}</TableHead>
                                 ))}
                                 <TableHead className="border-r text-center w-[110px] font-bold tracking-tight leading-tight px-2">DATE</TableHead>
-                                <TableHead className="border-r text-right w-[120px] font-bold tracking-tight leading-tight px-2">BALANCE<br />OF ACCOUNT</TableHead>
+                                <TableHead className="border-r text-right w-[120px] font-bold tracking-tight leading-tight px-2">TOTAL<br />EXPENSES</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {monthlyData.filter(d => d.hasData).map((data) => {
-                                // Use manual balance for this month (month is 1-indexed in the API)
-                                const manualBalance = monthlyBalances[data.monthIndex + 1] || 0;
+                                // Calculate total expenses for this month
+                                const totalExpenses = KNOWN_CATEGORIES.reduce((sum, cat) => sum + (data.expensesByCategory[cat] || 0), 0) + data.miscExpenses;
 
                                 return (
                                     <TableRow key={data.monthIndex} className="hover:bg-muted/30 transition-colors">
@@ -160,8 +160,8 @@ export default function TransactionsPage() {
                                         <TableCell className="border-r text-center font-medium text-slate-700">
                                             {MONTH_FULL_NAMES[data.monthIndex]} / {getLastDayOfMonth(currentYear, data.monthIndex)}
                                         </TableCell>
-                                        <TableCell className="border-r text-right bg-slate-50 font-bold tracking-tighter text-blue-800">
-                                            {manualBalance ? formatIDR(manualBalance) : ""}
+                                        <TableCell className="border-r text-right bg-slate-50 font-bold tracking-tighter text-rose-700">
+                                            {totalExpenses > 0 ? formatIDR(totalExpenses) : ""}
                                         </TableCell>
                                     </TableRow>
                                 );
@@ -183,10 +183,10 @@ export default function TransactionsPage() {
                                     );
                                 })}
                                 <TableCell className="border-r"></TableCell>
-                                <TableCell className="border-r text-right bg-blue-100 align-bottom pt-3 pb-3">
-                                    <div className="flex flex-col items-end justify-end font-bold text-blue-800 tracking-tighter">
-                                        <span className="text-[10px] text-blue-600/80 leading-tight uppercase">TOTAL BANK BALANCE</span>
-                                        <span className="text-sm">{formatIDR(monthlyBalances[12] || 0)}</span>
+                                <TableCell className="border-r text-right bg-rose-100 align-bottom pt-3 pb-3">
+                                    <div className="flex flex-col items-end justify-end font-bold text-rose-800 tracking-tighter">
+                                        <span className="text-[10px] text-rose-600/80 leading-tight uppercase">TOTAL EXPENSES</span>
+                                        <span className="text-sm">{formatIDR(transactions.filter(t => t.type === 'EXPENSE').reduce((sum, t) => sum + t.amount, 0))}</span>
                                     </div>
                                 </TableCell>
                             </TableRow>
