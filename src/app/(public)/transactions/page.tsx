@@ -140,13 +140,13 @@ export default function TransactionsPage() {
                                     <TableHead key={cat} className="border-r text-right w-[80px] whitespace-normal leading-tight mx-auto px-2">{cat.replace(' ', '\n')}</TableHead>
                                 ))}
                                 <TableHead className="border-r text-center w-[110px] font-bold tracking-tight leading-tight px-2">DATE</TableHead>
-                                <TableHead className="border-r text-right w-[120px] font-bold tracking-tight leading-tight px-2">TOTAL<br />EXPENSES</TableHead>
+                                <TableHead className="border-r text-right w-[120px] font-bold tracking-tight leading-tight px-2">BALANCE<br />OF ACCOUNT</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {monthlyData.filter(d => d.hasData).map((data) => {
-                                // Calculate total expenses for this month
-                                const totalExpenses = KNOWN_CATEGORIES.reduce((sum, cat) => sum + (data.expensesByCategory[cat] || 0), 0) + data.miscExpenses;
+                                // Use manual balance for this month (month is 1-indexed in the API)
+                                const manualBalance = monthlyBalances[data.monthIndex + 1] || 0;
 
                                 return (
                                     <TableRow key={data.monthIndex} className="hover:bg-muted/30 transition-colors">
@@ -160,8 +160,8 @@ export default function TransactionsPage() {
                                         <TableCell className="border-r text-center font-medium text-slate-700">
                                             {MONTH_FULL_NAMES[data.monthIndex]} / {getLastDayOfMonth(currentYear, data.monthIndex)}
                                         </TableCell>
-                                        <TableCell className="border-r text-right bg-slate-50 font-bold tracking-tighter text-rose-700">
-                                            {totalExpenses > 0 ? formatIDR(totalExpenses) : ""}
+                                        <TableCell className="border-r text-right bg-slate-50 font-bold tracking-tighter text-blue-800">
+                                            {manualBalance ? formatIDR(manualBalance) : ""}
                                         </TableCell>
                                     </TableRow>
                                 );
