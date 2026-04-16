@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     Fingerprint, ShieldCheck, Users, UserPlus, Search, Download, Signal,
-    Activity, TrendingUp, AlertTriangle, CheckCircle, XCircle, Loader2, RefreshCw,
+    Activity, TrendingUp, CheckCircle, XCircle, Loader2, RefreshCw,
     CalendarDays, Wifi, WifiOff, ChevronLeft, ChevronRight, Trash2
 } from "lucide-react";
 
@@ -21,7 +21,7 @@ interface TodayLog {
     checkIn: string | null;
     checkOut: string | null;
     hoursWorked: number | null;
-    status: "present" | "late" | "absent";
+    status: "present" | "absent";
     autoClosedBy: string | null;
 }
 
@@ -75,10 +75,9 @@ interface ReportData {
 }
 // ──────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: "present" | "late" | "absent" }) {
+function StatusBadge({ status }: { status: "present" | "absent" }) {
     const map = {
         present: { label: "Present", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-        late: { label: "Late", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
         absent: { label: "Absent", className: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
     };
     const s = map[status];
@@ -274,7 +273,7 @@ export default function AdminAttendancePage() {
     const totalStaff = guardProfiles.length;
     const configured = data?.configured || false;
 
-    const lateCount = todayLog.filter(l => l.status === "late").length;
+    const checkedInCount = todayLog.filter(l => l.status === "present").length;
     const presentCount = data?.summary?.present || 0;
 
     const filteredLog = todayLog.filter(row =>
@@ -372,10 +371,10 @@ export default function AdminAttendancePage() {
                         <Card className="bg-slate-800/50 border-slate-700/50">
                             <CardContent className="pt-5 pb-4">
                                 <div className="flex items-center justify-between">
-                                    <p className="text-sm text-slate-400">Late Check-Ins</p>
-                                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                                    <p className="text-sm text-slate-400">Checked In</p>
+                                    <CheckCircle className="w-4 h-4 text-emerald-400" />
                                 </div>
-                                <p className="text-3xl font-bold mt-1 text-amber-400">{lateCount}</p>
+                                <p className="text-3xl font-bold mt-1 text-emerald-400">{checkedInCount}</p>
                                 <p className="text-xs text-slate-500 mt-1">Today</p>
                             </CardContent>
                         </Card>

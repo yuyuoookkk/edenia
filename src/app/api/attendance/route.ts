@@ -53,7 +53,7 @@ export async function GET() {
         checkIn: record.checkIn ? formatTime(record.checkIn) : null,
         checkOut: record.checkOut ? formatTime(record.checkOut) : null,
         hoursWorked: record.hoursWorked,
-        status: record.status as "present" | "late" | "absent",
+        status: record.checkIn ? "present" as const : "absent" as const,
         autoClosedBy: record.autoClosedBy,
     }));
 
@@ -83,7 +83,7 @@ export async function GET() {
         checkIn: record.checkIn ? formatTime(record.checkIn) : null,
         checkOut: record.checkOut ? formatTime(record.checkOut) : null,
         hoursWorked: record.hoursWorked,
-        status: record.status as "present" | "late" | "absent",
+        status: record.checkIn ? "present" as const : "absent" as const,
     }));
 
     // Build security staff status
