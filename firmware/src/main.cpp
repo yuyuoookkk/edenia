@@ -119,6 +119,19 @@ void connectWiFi() {
     Serial.print("[WiFi] Connected! IP: ");
     Serial.println(WiFi.localIP());
 
+    // Override MiFi DNS with reliable public DNS servers
+    IPAddress dns1 = DNS_PRIMARY;
+    IPAddress dns2 = DNS_SECONDARY;
+
+    // Reconfigure with static DNS but keep DHCP IP/gateway
+    IPAddress localIP = WiFi.localIP();
+    IPAddress gateway = WiFi.gatewayIP();
+    IPAddress subnet  = WiFi.subnetMask();
+    WiFi.config(localIP, gateway, subnet, dns1, dns2);
+
+    Serial.printf("[WiFi] DNS set to %s / %s\n",
+                  dns1.toString().c_str(), dns2.toString().c_str());
+
     char ipStr[17];
     snprintf(ipStr, sizeof(ipStr), "IP:%s", WiFi.localIP().toString().c_str());
     lcdPrint("WiFi Connected!", ipStr);
@@ -202,16 +215,10 @@ void sendScanToServer(uint8_t fingerprintId, int guardIdx) {
             char lcdLine2[17];
 
             if (strcmp(action, "checkin") == 0) {
-                const char* status = doc["status"] | "present";
                 char timeStr[6];
                 snprintf(timeStr, sizeof(timeStr), "%02d:%02d",
                          timeClient.getHours(), timeClient.getMinutes());
-
-                if (strcmp(status, "late") == 0) {
-                    snprintf(lcdLine2, sizeof(lcdLine2), "In:%s  LATE", timeStr);
-                } else {
-                    snprintf(lcdLine2, sizeof(lcdLine2), "In:%s  OK!", timeStr);
-                }
+                snprintf(lcdLine2, sizeof(lcdLine2), "In:%s  OK!", timeStr);
                 lcdShowTemp(guardName, lcdLine2);
             }
             else if (strcmp(action, "checkout") == 0) {
@@ -229,15 +236,10 @@ void sendScanToServer(uint8_t fingerprintId, int guardIdx) {
 
                 // Show replacement for a bit longer, then show new guard
                 delay(LCD_MESSAGE_DURATION_MS);
-                const char* status = doc["status"] | "present";
                 char timeStr[6];
                 snprintf(timeStr, sizeof(timeStr), "%02d:%02d",
                          timeClient.getHours(), timeClient.getMinutes());
-                if (strcmp(status, "late") == 0) {
-                    snprintf(lcdLine2, sizeof(lcdLine2), "In:%s  LATE", timeStr);
-                } else {
-                    snprintf(lcdLine2, sizeof(lcdLine2), "In:%s  OK!", timeStr);
-                }
+                snprintf(lcdLine2, sizeof(lcdLine2), "In:%s  OK!", timeStr);
                 lcdShowTemp(guardName, lcdLine2);
             }
             else {
@@ -531,13 +533,6 @@ void setup() {
     finger.getParameters();
     Serial.printf("[Init] Sensor capacity: %d, Security level: %d\n",
                   finger.capacity, finger.security_level);
-
-    // ── Clear all stored fingerprints (ONE-TIME RESET) ──────────
-    // Remove this block after flashing once!
-    Serial.println("[Init] ⚠ Clearing ALL fingerprints from sensor...");
-    finger.emptyDatabase();
-    Serial.println("[Init] ✓ Sensor cleared! All fingerprint slots are now empty.");
-    // ─────────────────────────────────────────────────────────────
 
     // Connect WiFi
     connectWiFi();

@@ -30,6 +30,13 @@
 #define API_HEARTBEAT   "/api/attendance/heartbeat"   // Device heartbeat endpoint
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// DNS Configuration
+// MiFi routers often provide unreliable DNS. Use public DNS servers instead.
+// ═══════════════════════════════════════════════════════════════════════════════
+#define DNS_PRIMARY     IPAddress(8, 8, 8, 8)        // Google DNS
+#define DNS_SECONDARY   IPAddress(1, 1, 1, 1)        // Cloudflare DNS
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Timezone & NTP
 // ═══════════════════════════════════════════════════════════════════════════════
 #define NTP_SERVER          "pool.ntp.org"
