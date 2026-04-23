@@ -95,6 +95,7 @@ export async function GET() {
             name: guard.name,
             role: guard.role,
             shift: guard.shift === "Day" ? "Day (06:00–18:00)" : "Night (18:00–06:00)",
+            phone: guard.phone || null,
             isWorking: isOnDuty,
             checkIn: todayRecord?.checkIn ? formatTime(todayRecord.checkIn) : null,
             checkOut: todayRecord?.checkOut ? formatTime(todayRecord.checkOut) : null,
@@ -122,6 +123,7 @@ export async function GET() {
                 name: activeRecord.guard.name,
                 role: activeRecord.guard.role,
                 shift: activeRecord.guard.shift,
+                phone: activeRecord.guard.phone || null,
                 checkIn: activeRecord.checkIn.toISOString(),
                 fingerprintId: activeRecord.guard.fingerprintId,
             }
@@ -134,6 +136,7 @@ export async function GET() {
             name: g.name,
             role: g.role,
             shift: g.shift === "Day" ? "Day (06:00–18:00)" : "Night (18:00–06:00)",
+            phone: g.phone || null,
         })),
         device,
         summary: {

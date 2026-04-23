@@ -61,6 +61,7 @@ model SecurityGuard {
   role          String             // "Security 1", "Security 2", etc.
   shift         String             // "Day" or "Night"
   shiftStart    String             // "06:00" or "18:00"
+  phone         String?            // Cell phone number
   isActive      Boolean            @default(true)
   records       AttendanceRecord[]
   createdAt     DateTime           @default(now())

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     Fingerprint, ShieldCheck, ShieldX, Wifi, WifiOff,
-    Clock, CalendarDays, Users, Loader2, ChevronLeft, ChevronRight, X
+    Clock, CalendarDays, Users, Loader2, ChevronLeft, ChevronRight, X, Phone
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────
@@ -17,6 +17,7 @@ interface SecurityStaff {
     name: string;
     role: string;
     shift: string;
+    phone: string | null;
     isWorking: boolean;
     checkIn: string | null;
     checkOut: string | null;
@@ -37,6 +38,7 @@ interface ActiveGuard {
     name: string;
     role: string;
     shift: string;
+    phone: string | null;
     checkIn: string;
     fingerprintId: number;
 }
@@ -236,6 +238,14 @@ export default function AttendancePage() {
                                                     {activeGuard.role} • {activeGuard.shift === "Day" ? "Day Shift" : "Night Shift"} • Since{" "}
                                                     {new Date(activeGuard.checkIn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
                                                 </p>
+                                                {activeGuard.phone && (
+                                                    <p className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+                                                        <Phone className="w-3.5 h-3.5" />
+                                                        <a href={`tel:${activeGuard.phone}`} className="hover:text-primary transition-colors">
+                                                            {activeGuard.phone}
+                                                        </a>
+                                                    </p>
+                                                )}
                                             </>
                                         ) : (
                                             <p className="text-2xl font-bold text-rose-600">No guard on duty</p>

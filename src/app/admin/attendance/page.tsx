@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import {
     Fingerprint, ShieldCheck, Users, UserPlus, Search, Download, Signal,
     Activity, TrendingUp, CheckCircle, XCircle, Loader2, RefreshCw,
-    CalendarDays, Wifi, WifiOff, ChevronLeft, ChevronRight, Trash2
+    CalendarDays, Wifi, WifiOff, ChevronLeft, ChevronRight, Trash2, Phone
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────
@@ -30,12 +30,14 @@ interface GuardProfile {
     name: string;
     role: string;
     shift: string;
+    phone: string | null;
 }
 
 interface ActiveGuard {
     name: string;
     role: string;
     shift: string;
+    phone: string | null;
     checkIn: string;
     fingerprintId: number;
 }
@@ -51,7 +53,7 @@ interface DeviceInfo {
 interface AttendanceData {
     configured: boolean;
     activeGuard: ActiveGuard | null;
-    securityStaff: { id: number; name: string; role: string; shift: string; isWorking: boolean; checkIn: string | null; checkOut: string | null }[];
+    securityStaff: { id: number; name: string; role: string; shift: string; phone: string | null; isWorking: boolean; checkIn: string | null; checkOut: string | null }[];
     todayLog: TodayLog[];
     guardProfiles: GuardProfile[];
     device: DeviceInfo;
@@ -146,6 +148,7 @@ export default function AdminAttendancePage() {
     const [enrollShift, setEnrollShift] = useState("Day");
     const [enrollShiftStart, setEnrollShiftStart] = useState("06:00");
     const [enrollFpId, setEnrollFpId] = useState("");
+    const [enrollPhone, setEnrollPhone] = useState("");
     const [enrolling, setEnrolling] = useState(false);
     const [enrollStatus, setEnrollStatus] = useState<{
         status: string; message: string | null; guardName: string | null;
@@ -220,6 +223,7 @@ export default function AdminAttendancePage() {
                     role: enrollRole,
                     shift: enrollShift,
                     shiftStart: enrollShiftStart,
+                    phone: enrollPhone || null,
                 }),
             });
             const json = await res.json();
@@ -315,8 +319,18 @@ export default function AdminAttendancePage() {
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                     </span>
-                    <strong>{activeGuard.name}</strong> is currently on duty ({activeGuard.role}) — checked in at{" "}
-                    {new Date(activeGuard.checkIn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                        <span>
+                            <strong>{activeGuard.name}</strong> is currently on duty ({activeGuard.role}) — checked in at{" "}
+                            {new Date(activeGuard.checkIn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                        </span>
+                        {activeGuard.phone && (
+                            <a href={`tel:${activeGuard.phone}`} className="inline-flex items-center gap-1 text-emerald-300 hover:text-emerald-200 transition-colors">
+                                <Phone className="w-3.5 h-3.5" />
+                                {activeGuard.phone}
+                            </a>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -645,6 +659,17 @@ export default function AdminAttendancePage() {
                                             <option value="Night">Night (18:00–06:00)</option>
                                         </select>
                                     </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs text-slate-400">Phone Number</label>
+                                        <Input
+                                            type="tel"
+                                            placeholder="e.g. 081234567890"
+                                            value={enrollPhone}
+                                            onChange={(e) => setEnrollPhone(e.target.value)}
+                                            className="bg-slate-900/50 border-slate-600/50"
+                                            disabled={enrolling}
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Enrollment Status */}
@@ -735,6 +760,17 @@ export default function AdminAttendancePage() {
                                         <div className="flex justify-between">
                                             <span className="text-slate-500">Shift</span>
                                             <span className="text-slate-300">{staff.shift}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-slate-500">Phone</span>
+                                            {staff.phone ? (
+                                                <a href={`tel:${staff.phone}`} className="flex items-center gap-1 text-slate-300 hover:text-primary transition-colors">
+                                                    <Phone className="w-3 h-3" />
+                                                    {staff.phone}
+                                                </a>
+                                            ) : (
+                                                <span className="text-slate-600">—</span>
+                                            )}
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-slate-500">Status</span>

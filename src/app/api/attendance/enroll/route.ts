@@ -40,7 +40,7 @@ let enrollmentRequest: {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { fingerprintId, name, role, shift, shiftStart } = body;
+        const { fingerprintId, name, role, shift, shiftStart, phone } = body;
 
         if (!fingerprintId || !name || !role) {
             return NextResponse.json(
@@ -116,6 +116,7 @@ export async function POST(request: Request) {
                 role,
                 shift: shift || "Day",
                 shiftStart: shiftStart || "06:00",
+                phone: phone || null,
                 isActive: false, // Will be activated after successful enrollment
             },
         });

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ArrowUpRight, ArrowDownRight, CalendarDays, ShieldCheck, ShieldX } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, CalendarDays, ShieldCheck, ShieldX, Phone } from "lucide-react";
 import Link from "next/link";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ export default function Home() {
   const [paidVillasCount, setPaidVillasCount] = useState(0);
   const [totalVillas, setTotalVillas] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeGuard, setActiveGuard] = useState<{ name: string; role: string; checkIn: string } | null>(null);
+  const [activeGuard, setActiveGuard] = useState<{ name: string; role: string; checkIn: string; phone: string | null } | null>(null);
 
   // Fetch active guard on duty
   useEffect(() => {
@@ -218,6 +218,14 @@ export default function Home() {
                       <p className="text-xs sm:text-sm font-medium text-emerald-600/80 dark:text-emerald-400/80 line-clamp-2">
                         {activeGuard.role} • On duty since {new Date(activeGuard.checkIn).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
                       </p>
+                      {activeGuard.phone && (
+                        <p className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-muted-foreground mt-0.5">
+                          <Phone className="w-3.5 h-3.5" />
+                          <a href={`tel:${activeGuard.phone}`} className="hover:text-primary transition-colors" onClick={(e) => e.stopPropagation()}>
+                            {activeGuard.phone}
+                          </a>
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <p className="text-xl sm:text-2xl font-bold tracking-tight text-rose-600 dark:text-rose-500 mt-1">No guard on duty</p>
