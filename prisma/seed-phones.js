@@ -10,6 +10,7 @@ const phoneMap = {
   "I Made Suada": "081239906171",
   "I Ketut Sukerti": "081547233920",
   "I Wayan Liyang": "081338541402",
+  "I Wayan Swadarma": "085829299002",
 };
 
 async function main() {
