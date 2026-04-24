@@ -4,13 +4,13 @@ const prisma = new PrismaClient();
 
 // Phone number mapping from guard names
 const phoneMap = {
-  "I Wayan Deniya": "087717307903",
-  "I Wayan Sukawan": "085737400900",
-  "I Made Mudiana": "081338203764",
-  "I Made Suada": "081239906171",
-  "I Ketut Sukerti": "081547233920",
-  "I Wayan Liyang": "081338541402",
-  "I Wayan Swadarma": "085829299002",
+  "I Wayan Deniya": "+6287717307903",
+  "I Wayan Sukawan": "+6285737400900",
+  "I Made Mudiana": "+6281338203764",
+  "I Made Suada": "+6281239906171",
+  "I Ketut Sukerti": "+6281547233920",
+  "I Wayan Liyang": "+6281338541402",
+  "I Wayan Swadarma": "+6285829299002",
 };
 
 async function main() {
