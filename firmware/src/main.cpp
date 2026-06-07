@@ -58,9 +58,13 @@ unsigned long lastHeartbeat    = 0;
 unsigned long lastLcdMessage   = 0;
 unsigned long lastScanTime     = 0;
 unsigned long lastEnrollCheck  = 0;
+unsigned long lastCommandCheck = 0;
+unsigned long lastNtpSync      = 0;
 unsigned long bootTime         = 0;
 bool          showingMessage   = false;
 bool          enrollingMode    = false;
+bool          ntpSynced        = false;
+int           lastDisplayedMinute = -1;  // Track LCD clock to update on minute change
 
 #define ENROLL_CHECK_INTERVAL_MS 5000  // Poll for enrollment requests every 5s
 
@@ -313,6 +317,39 @@ void sendHeartbeat() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// HTTP: Lightweight Command Check (polled every 5 seconds)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+void checkForCommands() {
+    if (WiFi.status() != WL_CONNECTED) return;
+
+    HTTPClient http;
+    String url = String(SERVER_URL) + "/api/attendance/heartbeat/command";
+
+    http.begin(secureClient, url);
+    http.setTimeout(3000);
+
+    int httpCode = http.GET();
+
+    if (httpCode == 200) {
+        String response = http.getString();
+        JsonDocument doc;
+        if (!deserializeJson(doc, response)) {
+            const char* command = doc["command"] | "none";
+            if (strcmp(command, "restart") == 0) {
+                Serial.println("[Command] Server requested RESTART!");
+                lcdPrint("Remote Restart", "By Admin...");
+                http.end();
+                delay(2000);
+                ESP.restart();
+            }
+        }
+    }
+
+    http.end();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Fingerprint Enrollment (remote-triggered)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -555,25 +592,60 @@ void setup() {
     // Configure HTTPS (skip certificate verification)
     secureClient.setInsecure();
 
-    // Start NTP
+    // Start NTP — try primary server first, then fallback
     Serial.println("[Init] Syncing time...");
     lcdPrint("Syncing Clock", "Please wait...");
     timeClient.begin();
 
+    // Try primary NTP server (time.google.com)
+    ntpSynced = false;
     int ntpRetries = 10;
-    while (!timeClient.update() && ntpRetries > 0) {
-        timeClient.forceUpdate();
-        delay(500);
+    Serial.printf("[NTP] Trying primary: %s\n", NTP_SERVER);
+    while (!timeClient.forceUpdate() && ntpRetries > 0) {
+        Serial.printf("[NTP] Retry %d/10...\n", 11 - ntpRetries);
+        delay(1000);
         ntpRetries--;
     }
 
-    char timeStr[6];
-    snprintf(timeStr, sizeof(timeStr), "%02d:%02d",
-             timeClient.getHours(), timeClient.getMinutes());
-    char timeLine[17];
-    snprintf(timeLine, sizeof(timeLine), "Time: %s", timeStr);
-    lcdPrint("Clock Synced!", timeLine);
-    Serial.printf("[Init] Time synced: %s\n", timeStr);
+    // Check if we got a valid time (not epoch 0)
+    if (timeClient.getEpochTime() > 1700000000) {
+        ntpSynced = true;
+        Serial.println("[NTP] Primary server sync OK!");
+    } else {
+        // Try fallback NTP server
+        Serial.printf("[NTP] Primary failed, trying fallback: %s\n", NTP_SERVER_BACKUP);
+        lcdPrint("Trying Backup", "NTP Server...");
+        timeClient.end();
+        // Reinitialize with backup server
+        timeClient.setPoolServerName(NTP_SERVER_BACKUP);
+        timeClient.begin();
+
+        ntpRetries = 10;
+        while (!timeClient.forceUpdate() && ntpRetries > 0) {
+            Serial.printf("[NTP] Backup retry %d/10...\n", 11 - ntpRetries);
+            delay(1000);
+            ntpRetries--;
+        }
+
+        if (timeClient.getEpochTime() > 1700000000) {
+            ntpSynced = true;
+            Serial.println("[NTP] Backup server sync OK!");
+        }
+    }
+
+    if (ntpSynced) {
+        char timeStr[6];
+        snprintf(timeStr, sizeof(timeStr), "%02d:%02d",
+                 timeClient.getHours(), timeClient.getMinutes());
+        char timeLine[17];
+        snprintf(timeLine, sizeof(timeLine), "Time: %s", timeStr);
+        lcdPrint("Clock Synced!", timeLine);
+        Serial.printf("[NTP] Time synced: %s (epoch: %lu)\n", timeStr, timeClient.getEpochTime());
+    } else {
+        lcdPrint("Clock FAILED!", "Will retry...");
+        Serial.println("[NTP] WARNING: Could not sync time! Will retry in loop.");
+    }
+    lastNtpSync = millis();
     delay(1500);
 
     // Send initial heartbeat
@@ -596,6 +668,19 @@ void loop() {
     // Keep time updated
     timeClient.update();
 
+    // Periodic NTP force-resync to prevent clock drift
+    if (millis() - lastNtpSync >= NTP_RESYNC_INTERVAL_MS) {
+        Serial.println("[NTP] Periodic force resync...");
+        if (timeClient.forceUpdate()) {
+            ntpSynced = true;
+            Serial.printf("[NTP] Resync OK — %02d:%02d\n",
+                          timeClient.getHours(), timeClient.getMinutes());
+        } else {
+            Serial.println("[NTP] Resync failed, will retry next interval");
+        }
+        lastNtpSync = millis();
+    }
+
     // ── Auto-restart every 3 hours for system stability ──────────────────────
     if (millis() - bootTime >= AUTO_RESTART_INTERVAL_MS) {
         Serial.println("[System] Auto-restart triggered (3-hour interval)");
@@ -604,10 +689,16 @@ void loop() {
         ESP.restart();
     }
 
-    // Periodic heartbeat
+    // Periodic heartbeat (full status report)
     if (millis() - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
         sendHeartbeat();
         lastHeartbeat = millis();
+    }
+
+    // Lightweight command check (every 5 seconds for near-realtime response)
+    if (!enrollingMode && millis() - lastCommandCheck >= COMMAND_CHECK_INTERVAL_MS) {
+        checkForCommands();
+        lastCommandCheck = millis();
     }
 
     // Check for pending enrollment requests
@@ -619,6 +710,16 @@ void loop() {
     // Clear temporary LCD messages → return to idle
     if (showingMessage && (millis() - lastLcdMessage >= LCD_MESSAGE_DURATION_MS)) {
         lcdShowIdle();
+        lastDisplayedMinute = timeClient.getMinutes();
+    }
+
+    // Update LCD clock every minute when idle
+    if (!showingMessage && !enrollingMode) {
+        int currentMinute = timeClient.getMinutes();
+        if (currentMinute != lastDisplayedMinute) {
+            lcdShowIdle();
+            lastDisplayedMinute = currentMinute;
+        }
     }
 
     // Scan cooldown

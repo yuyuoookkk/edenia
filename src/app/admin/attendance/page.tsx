@@ -267,7 +267,7 @@ export default function AdminAttendancePage() {
     }
 
     async function restartDevice() {
-        if (!confirm("Are you sure you want to restart the ESP32 device? The device will restart on its next heartbeat (within ~5 minutes).")) return;
+        if (!confirm("Are you sure you want to restart the ESP32 device? The device will restart within seconds.")) return;
         setRestarting(true);
         setRestartMessage(null);
         try {
@@ -937,7 +937,7 @@ export default function AdminAttendancePage() {
                             <CardContent className="space-y-4">
                                 <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
                                     <p className="text-xs text-amber-400/80">
-                                        The restart command will be sent on the next device heartbeat (every ~5 minutes).
+                                        The restart command will be picked up within ~5 seconds.
                                         The device will show &quot;Remote Restart&quot; on the LCD before rebooting.
                                     </p>
                                 </div>

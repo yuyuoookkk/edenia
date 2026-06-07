@@ -38,9 +38,12 @@
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Timezone & NTP
+// Use IP addresses to bypass MiFi DNS issues with NTP resolution
 // ═══════════════════════════════════════════════════════════════════════════════
-#define NTP_SERVER          "pool.ntp.org"
-#define UTC_OFFSET_SECONDS  28800   // UTC+8 (WITA / Bali time) = 8 * 3600
+#define NTP_SERVER          "time.google.com"   // Google NTP (reliable)
+#define NTP_SERVER_BACKUP   "pool.ntp.org"       // Fallback
+#define UTC_OFFSET_SECONDS  28800               // UTC+8 (WITA / Bali time) = 8 * 3600
+#define NTP_RESYNC_INTERVAL_MS 1800000UL          // Force NTP resync every 30 minutes
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Hardware Pin Assignments
@@ -87,12 +90,13 @@ const Guard GUARDS[1] = {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Timing Constants
 // ═══════════════════════════════════════════════════════════════════════════════
-#define HEARTBEAT_INTERVAL_MS   300000    // 5 minutes between heartbeat pings
-#define LCD_MESSAGE_DURATION_MS 3000      // How long status messages stay on LCD
-#define WIFI_CONNECT_TIMEOUT_MS 15000     // WiFi connection timeout
-#define HTTP_TIMEOUT_MS         10000     // HTTP request timeout
-#define SCAN_COOLDOWN_MS        2000      // Cooldown between consecutive scans
-#define AUTO_RESTART_INTERVAL_MS 10800000 // Auto-restart every 3 hours (3*60*60*1000)
+#define HEARTBEAT_INTERVAL_MS   300000UL    // 5 minutes between heartbeat pings
+#define COMMAND_CHECK_INTERVAL_MS 5000UL    // Check for server commands every 5 seconds
+#define LCD_MESSAGE_DURATION_MS 3000UL      // How long status messages stay on LCD
+#define WIFI_CONNECT_TIMEOUT_MS 15000UL     // WiFi connection timeout
+#define HTTP_TIMEOUT_MS         10000UL     // HTTP request timeout
+#define SCAN_COOLDOWN_MS        2000UL      // Cooldown between consecutive scans
+#define AUTO_RESTART_INTERVAL_MS 10800000UL // Auto-restart every 3 hours (3*60*60*1000)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Firmware Version

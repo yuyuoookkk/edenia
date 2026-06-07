@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+    getRestartFlag,
+    getRestartRequestedAt,
+    setRestartFlag,
+    clearRestartFlag,
+} from "./_restart-state";
 
 /**
  * POST /api/attendance/heartbeat
@@ -25,10 +31,6 @@ let deviceStatus: {
     firmware: null,
 };
 
-// In-memory restart command flag
-let restartPending = false;
-let restartRequestedAt: string | null = null;
-
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -46,8 +48,8 @@ export async function POST(request: Request) {
         );
 
         // If a restart has been requested by admin, tell the ESP32 to restart
-        if (restartPending) {
-            restartPending = false;
+        if (getRestartFlag()) {
+            clearRestartFlag();
             console.log(`[Heartbeat] Sending restart command to ESP32`);
             return NextResponse.json({ ok: true, command: "restart" });
         }
@@ -79,8 +81,8 @@ export async function GET() {
 
     return NextResponse.json({
         ...deviceStatus,
-        restartPending,
-        restartRequestedAt,
+        restartPending: getRestartFlag(),
+        restartRequestedAt: getRestartRequestedAt(),
     });
 }
 
@@ -88,14 +90,13 @@ export async function GET() {
  * PATCH /api/attendance/heartbeat
  *
  * Request a remote restart of the ESP32 device.
- * The next heartbeat response will include the restart command.
+ * The next heartbeat/command-check will include the restart command.
  */
 export async function PATCH() {
-    restartPending = true;
-    restartRequestedAt = new Date().toISOString();
-    console.log(`[Heartbeat] Restart requested by admin at ${restartRequestedAt}`);
+    setRestartFlag();
+    console.log(`[Heartbeat] Restart requested by admin at ${getRestartRequestedAt()}`);
     return NextResponse.json({
         ok: true,
-        message: "Restart command queued. Device will restart on next heartbeat.",
+        message: "Restart command queued. Device will restart within seconds.",
     });
 }
