@@ -288,8 +288,23 @@ void sendHeartbeat() {
     int httpCode = http.POST(body);
 
     if (httpCode > 0) {
+        String response = http.getString();
         Serial.printf("[Heartbeat] Sent OK (%d) — uptime: %lus, rssi: %d\n",
                       httpCode, uptimeSeconds, rssi);
+
+        // Check if server is requesting a restart
+        if (httpCode == 200) {
+            JsonDocument doc;
+            if (!deserializeJson(doc, response)) {
+                const char* command = doc["command"] | "";
+                if (strcmp(command, "restart") == 0) {
+                    Serial.println("[Heartbeat] Server requested RESTART!");
+                    lcdPrint("Remote Restart", "By Admin...");
+                    delay(2000);
+                    ESP.restart();
+                }
+            }
+        }
     } else {
         Serial.printf("[Heartbeat] Failed: %s\n", http.errorToString(httpCode).c_str());
     }
@@ -580,6 +595,14 @@ void setup() {
 void loop() {
     // Keep time updated
     timeClient.update();
+
+    // ── Auto-restart every 3 hours for system stability ──────────────────────
+    if (millis() - bootTime >= AUTO_RESTART_INTERVAL_MS) {
+        Serial.println("[System] Auto-restart triggered (3-hour interval)");
+        lcdPrint("Auto Restart", "Please wait...");
+        delay(2000);
+        ESP.restart();
+    }
 
     // Periodic heartbeat
     if (millis() - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {

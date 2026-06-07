@@ -92,6 +92,7 @@ const Guard GUARDS[1] = {
 #define WIFI_CONNECT_TIMEOUT_MS 15000     // WiFi connection timeout
 #define HTTP_TIMEOUT_MS         10000     // HTTP request timeout
 #define SCAN_COOLDOWN_MS        2000      // Cooldown between consecutive scans
+#define AUTO_RESTART_INTERVAL_MS 10800000 // Auto-restart every 3 hours (3*60*60*1000)
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Firmware Version

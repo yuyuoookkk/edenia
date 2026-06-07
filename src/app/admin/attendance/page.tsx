@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import {
     Fingerprint, ShieldCheck, Users, UserPlus, Search, Download, Signal,
     Activity, TrendingUp, CheckCircle, XCircle, Loader2, RefreshCw,
-    CalendarDays, Wifi, WifiOff, ChevronLeft, ChevronRight, Trash2, Phone
+    CalendarDays, Wifi, WifiOff, ChevronLeft, ChevronRight, Trash2, Phone, Power
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────
@@ -154,6 +154,10 @@ export default function AdminAttendancePage() {
         status: string; message: string | null; guardName: string | null;
     } | null>(null);
 
+    // Restart state
+    const [restarting, setRestarting] = useState(false);
+    const [restartMessage, setRestartMessage] = useState<string | null>(null);
+
     async function fetchData(isRefresh = false) {
         if (isRefresh) setRefreshing(true);
         try {
@@ -259,6 +263,28 @@ export default function AdminAttendancePage() {
             }
         } catch {
             alert("Network error");
+        }
+    }
+
+    async function restartDevice() {
+        if (!confirm("Are you sure you want to restart the ESP32 device? The device will restart on its next heartbeat (within ~5 minutes).")) return;
+        setRestarting(true);
+        setRestartMessage(null);
+        try {
+            const res = await fetch("/api/attendance/heartbeat", { method: "PATCH" });
+            const json = await res.json();
+            if (res.ok) {
+                setRestartMessage(json.message || "Restart command queued.");
+            } else {
+                setRestartMessage("Failed to send restart command.");
+            }
+        } catch {
+            setRestartMessage("Network error — could not reach server.");
+        } finally {
+            setTimeout(() => {
+                setRestarting(false);
+                setRestartMessage(null);
+            }, 15000);
         }
     }
 
@@ -897,6 +923,60 @@ export default function AdminAttendancePage() {
                                         </div>
                                     </div>
                                 </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Remote Restart Card */}
+                        <Card className="bg-slate-800/50 border-slate-700/50">
+                            <CardHeader>
+                                <CardTitle className="text-base flex items-center gap-2">
+                                    <Power className="w-4 h-4 text-amber-400" /> Device Control
+                                </CardTitle>
+                                <CardDescription className="text-slate-500">Remotely restart the ESP32 device</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                                    <p className="text-xs text-amber-400/80">
+                                        The restart command will be sent on the next device heartbeat (every ~5 minutes).
+                                        The device will show &quot;Remote Restart&quot; on the LCD before rebooting.
+                                    </p>
+                                </div>
+
+                                {restartMessage && (
+                                    <div className={`flex items-center gap-2 p-3 rounded-lg border ${
+                                        restartMessage.includes("queued")
+                                            ? "bg-emerald-500/10 border-emerald-500/20"
+                                            : "bg-rose-500/10 border-rose-500/20"
+                                    }`}>
+                                        {restartMessage.includes("queued") ? (
+                                            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                                        ) : (
+                                            <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                                        )}
+                                        <span className={`text-sm ${
+                                            restartMessage.includes("queued") ? "text-emerald-400" : "text-rose-400"
+                                        }`}>
+                                            {restartMessage}
+                                        </span>
+                                    </div>
+                                )}
+
+                                <Button
+                                    variant="outline"
+                                    className="w-full border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 gap-2"
+                                    onClick={restartDevice}
+                                    disabled={restarting || !device.online}
+                                >
+                                    {restarting ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin" /> Restart Queued...</>
+                                    ) : (
+                                        <><Power className="w-4 h-4" /> Restart Device</>
+                                    )}
+                                </Button>
+
+                                {!device.online && (
+                                    <p className="text-xs text-slate-500 text-center">Device must be online to send restart command</p>
+                                )}
                             </CardContent>
                         </Card>
                     </div>

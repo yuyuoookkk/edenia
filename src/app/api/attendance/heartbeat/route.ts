@@ -25,6 +25,10 @@ let deviceStatus: {
     firmware: null,
 };
 
+// In-memory restart command flag
+let restartPending = false;
+let restartRequestedAt: string | null = null;
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -40,6 +44,13 @@ export async function POST(request: Request) {
         console.log(
             `[Heartbeat] ESP32 ping — uptime: ${body.uptime}s, rssi: ${body.rssi}dBm, fw: ${body.fw}`
         );
+
+        // If a restart has been requested by admin, tell the ESP32 to restart
+        if (restartPending) {
+            restartPending = false;
+            console.log(`[Heartbeat] Sending restart command to ESP32`);
+            return NextResponse.json({ ok: true, command: "restart" });
+        }
 
         return NextResponse.json({ ok: true });
     } catch (error: any) {
@@ -66,5 +77,25 @@ export async function GET() {
         }
     }
 
-    return NextResponse.json(deviceStatus);
+    return NextResponse.json({
+        ...deviceStatus,
+        restartPending,
+        restartRequestedAt,
+    });
+}
+
+/**
+ * PATCH /api/attendance/heartbeat
+ *
+ * Request a remote restart of the ESP32 device.
+ * The next heartbeat response will include the restart command.
+ */
+export async function PATCH() {
+    restartPending = true;
+    restartRequestedAt = new Date().toISOString();
+    console.log(`[Heartbeat] Restart requested by admin at ${restartRequestedAt}`);
+    return NextResponse.json({
+        ok: true,
+        message: "Restart command queued. Device will restart on next heartbeat.",
+    });
 }
